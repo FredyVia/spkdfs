@@ -1,0 +1,90 @@
+syntax="proto3";
+package spkdfs;
+option cc_generic_services = true;
+
+message Request {
+};
+
+message Response {
+  bool success = 1;
+  string fail_info = 2;
+  string redirect = 3;
+};
+
+message CommonResponse {
+  Response common = 1;
+};
+
+message LsNNRequest {
+  string path = 1;
+}
+message LsNNResponse {
+  Response common = 1;
+  repeated string data = 2;
+};
+
+message MkdirNNRequest {
+  string path = 1;
+}
+
+message GetNNRequest {
+  string path = 1;
+}
+message GetNNResponse {
+  Response common = 1;
+  repeated uint32 blkids = 2;
+};
+
+message PutNNRequest {
+  string path = 1;
+  repeated uint32 blkids = 2;
+  uint64 size = 3;
+}
+message PutNNResponse {
+  Response common = 1;
+  repeated string nodes = 2;
+};
+
+
+message PutOKNNRequest {
+  string blkid = 1;
+};
+
+message GetMasterResponse {
+  Response common = 1;
+  string node = 2;
+}
+service NamenodeService {
+  rpc ls(LsNNRequest) returns (LsNNResponse);
+  rpc mkdir(MkdirNNRequest) returns (CommonResponse);
+  rpc get(GetNNRequest) returns (GetNNResponse);
+  rpc put(PutNNRequest) returns (PutNNResponse);
+  // datanode notice namenode blk storeed ok;
+  rpc put_ok(PutOKNNRequest) returns (CommonResponse);
+  rpc get_master(Request) returns (GetMasterResponse);
+};
+
+message GetDNRequest {
+  string blkid = 1;
+}
+message GetDNResponse {
+  Response common = 1;
+  bytes data = 2;
+};
+
+message PutDNRequest {
+  string blkid = 1;
+  bytes data = 2;
+};
+
+message GetNamenodesDNResponse {
+  Response common = 1;
+  repeated string nodes = 2;
+};
+
+service DatanodeService {
+  rpc put(PutDNRequest) returns (CommonResponse);
+  rpc get(GetDNRequest) returns (GetDNResponse);
+  rpc get_namenodes(Request) returns (GetNamenodesDNResponse);
+};
+

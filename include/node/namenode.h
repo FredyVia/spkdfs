@@ -1,3 +1,5 @@
+#ifndef NAMENODE_H
+#define NAMENODE_H
 #include <braft/raft.h>
 
 #include <functional>
@@ -21,18 +23,18 @@ namespace spkdfs {
         :  // isLeaderCallback(isLeaderCallback),
           getLeaderCallback(getLeaderCallback),
           applyCallback(applyCallback) {}
-    void ls(::google::protobuf::RpcController* controller, const LsNNRequest* request,
-            LsNNResponse* response, ::google::protobuf::Closure* done) override;
-    void mkdir(::google::protobuf::RpcController* controller, const MkdirNNRequest* request,
+    void ls(::google::protobuf::RpcController* controller, const NNLsRequest* request,
+            NNLsResponse* response, ::google::protobuf::Closure* done) override;
+    void mkdir(::google::protobuf::RpcController* controller, const NNMkdirRequest* request,
                CommonResponse* response, ::google::protobuf::Closure* done) override;
-    void put(::google::protobuf::RpcController* controller, const PutNNRequest* request,
-             PutNNResponse* response, ::google::protobuf::Closure* done) override;
-    void get(::google::protobuf::RpcController* controller, const GetNNRequest* request,
-             GetNNResponse* response, ::google::protobuf::Closure* done) override;
-    void put_ok(::google::protobuf::RpcController* controller, const PutOKNNRequest* request,
+    void put(::google::protobuf::RpcController* controller, const NNPutRequest* request,
+             NNPutResponse* response, ::google::protobuf::Closure* done) override;
+    void get(::google::protobuf::RpcController* controller, const NNGetRequest* request,
+             NNGetResponse* response, ::google::protobuf::Closure* done) override;
+    void put_ok(::google::protobuf::RpcController* controller, const NNPutOKRequest* request,
                 CommonResponse* response, ::google::protobuf::Closure* done) override;
     void get_master(::google::protobuf::RpcController* controller, const Request* request,
-                    GetMasterResponse* response, ::google::protobuf::Closure* done) override;
+                    NNGetMasterResponse* response, ::google::protobuf::Closure* done) override;
 
   private:
     // IsLeaderCallbackType isLeaderCallback;
@@ -57,3 +59,4 @@ namespace spkdfs {
     FuncType _func;  // 存储 lambda 表达式
   };
 }  // namespace spkdfs
+#endif

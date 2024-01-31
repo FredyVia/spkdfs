@@ -1,11 +1,13 @@
+#ifndef SERVER_H
+#define SERVER_H
 #include <brpc/server.h>  // brpc::Server
 
 #include <set>
 #include <string>
 #include <vector>
 
-#include "common/config.h"
 #include "common/node.h"
+#include "node/config.h"
 #include "node/datanode.h"
 #include "node/namenode.h"
 #include "node/raft_dn.h"
@@ -22,12 +24,14 @@ namespace spkdfs {
   private:
     brpc::Server nn_server;
     brpc::Server dn_server;
-    DatanodeServiceImpl* dn_service_ptr;
-    NamenodeServiceImpl* nn_service_ptr;
+    // brpc::Server dn_rpc_server;
+    // brpc::Server dn_raft_server;
     RaftDN* dn_raft_ptr;
     RaftNN* nn_raft_ptr;
     void on_namenode_master_change(const Node& node);
     Node leader();
     void on_namenodes_change(const std::vector<Node>& namenodes);
+    void waiting_for_rpc();
   };
 }  // namespace spkdfs
+#endif

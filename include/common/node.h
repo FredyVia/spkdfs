@@ -25,8 +25,6 @@ namespace spkdfs {
     bool operator<(const Node& other) const;
     bool valid();
     static Node INVALID_NODE;
-    void toNNNode();
-    void toDNNode();
     braft::PeerId to_peerid() const;
   };
   // 仅适用于具有迭代器的类型
@@ -54,6 +52,7 @@ namespace spkdfs {
     node.ip = j.at("ip").get<std::string>();
     node.port = j.at("port").get<int>();
   }
+  std::ostream& operator<<(std::ostream& out, const Node& node);
 }  // namespace spkdfs
 
 #endif

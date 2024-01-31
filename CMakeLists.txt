@@ -16,6 +16,10 @@ endif()
 # find package
 find_package(Threads REQUIRED)
 
+find_package(Backward CONFIG REQUIRED)
+
+find_package(unofficial-breakpad CONFIG REQUIRED)
+
 find_package(GTest CONFIG REQUIRED)
 
 set(GFLAGS_USE_TARGET_NAMESPACE ON)
@@ -37,6 +41,8 @@ set(PROTO_FILE src/common/service.proto)
 # 生成 protobuf 源文件和头文件
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
 
+find_path(DBG_MACRO_INCLUDE_DIRS "dbg.h")
+
 # ---- Create standalone executable ----
 
 file(GLOB src_common CONFIGURE_DEPENDS src/common/*.cpp)
@@ -52,13 +58,13 @@ list(FILTER src_client EXCLUDE REGEX "src/client/main\\.cpp$")
 
 add_executable(tests  ${src_node} ${src_client} ${src_tests} ${src_common} ${PROTO_SRCS})
 
-target_include_directories(node PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROTO_HDRS} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(client PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROTO_HDRS} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/include ${PROTO_HDRS} ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(node PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(client PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog)
-target_link_libraries(client gflags::gflags  unofficial::brpc::brpc-static)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog)
+target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward)
+target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward)
 
 enable_testing() 
 

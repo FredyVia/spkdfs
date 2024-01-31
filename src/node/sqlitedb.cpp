@@ -3,15 +3,15 @@
 #include <exception>
 #include <vector>
 
-#include "common/config.h"
 #include "common/inode.h"
+#include "node/config.h"
 
 namespace spkdfs {
 
   using namespace sqlite_orm;
   using namespace std;
   SqliteDB::SqliteDB() {
-    storage_ptr = std::make_unique<Storage>(_initStorage(FLAGS_data_path + "/sqlite.db"));
+    storage_ptr = std::make_unique<Storage>(_initStorage(FLAGS_data_dir + "/sqlite.db"));
   }
 
   std::vector<Inode> SqliteDB::ls(const Inode& inode) {

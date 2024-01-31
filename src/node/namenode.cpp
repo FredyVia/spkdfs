@@ -1,5 +1,7 @@
 #include "node/namenode.h"
 
+#include <brpc/closure_guard.h>
+
 #include <filesystem>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -17,9 +19,10 @@ namespace spkdfs {
 
   namespace fs = std::filesystem;
   void NamenodeServiceImpl::ls(::google::protobuf::RpcController* controller,
-                               const LsNNRequest* request, LsNNResponse* response,
+                               const NNLsRequest* request, NNLsResponse* response,
                                ::google::protobuf::Closure* done) {
     try {
+      brpc::ClosureGuard done_guard(done);
       fs::path filepath(request->path());
       Inode inode;
 
@@ -32,15 +35,17 @@ namespace spkdfs {
         response->add_data(inode.filename);
       }
     } catch (const std::exception& e) {
-      cerr << e.what() << endl;
+      LOG(ERROR) << e.what() << endl;
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
+
   void NamenodeServiceImpl::mkdir(::google::protobuf::RpcController* controller,
-                                  const MkdirNNRequest* request, CommonResponse* response,
+                                  const NNMkdirRequest* request, CommonResponse* response,
                                   ::google::protobuf::Closure* done) {
     try {
+      brpc::ClosureGuard done_guard(done);
       Node leader = getLeaderCallback();
       if (leader.valid()) {
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
@@ -59,35 +64,46 @@ namespace spkdfs {
       applyCallback(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
-      cerr << e.what() << endl;
+      LOG(ERROR) << e.what() << endl;
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
   void NamenodeServiceImpl::get(::google::protobuf::RpcController* controller,
-                                const GetNNRequest* request, GetNNResponse* response,
+                                const NNGetRequest* request, NNGetResponse* response,
                                 ::google::protobuf::Closure* done) {
+    brpc::ClosureGuard done_guard(done);
     request->path();
   };
   void NamenodeServiceImpl::put(::google::protobuf::RpcController* controller,
-                                const PutNNRequest* request, PutNNResponse* response,
+                                const NNPutRequest* request, NNPutResponse* response,
                                 ::google::protobuf::Closure* done) {
     try {
+      brpc::ClosureGuard done_guard(done);
       Node leader = getLeaderCallback();
       if (leader.valid()) {
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
         return;
       }
+      response->mutable_common()->set_success(false);
+      // for (const auto& node : nodes) {
+      //   std::string nodeStr = to_string(node);
+      //   response->add_nodes(to_string(node));
+      // }
     } catch (const std::exception& e) {
-      cerr << e.what() << endl;
+      LOG(ERROR) << e.what() << endl;
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
   void NamenodeServiceImpl::put_ok(::google::protobuf::RpcController* controller,
-                                   const PutOKNNRequest* request, CommonResponse* response,
-                                   ::google::protobuf::Closure* done) {}
+                                   const NNPutOKRequest* request, CommonResponse* response,
+                                   ::google::protobuf::Closure* done) {
+    brpc::ClosureGuard done_guard(done);
+  }
   void NamenodeServiceImpl::get_master(::google::protobuf::RpcController* controller,
-                                       const Request* request, GetMasterResponse* response,
-                                       ::google::protobuf::Closure* done) {}
+                                       const Request* request, NNGetMasterResponse* response,
+                                       ::google::protobuf::Closure* done) {
+    brpc::ClosureGuard done_guard(done);
+  }
 }  // namespace spkdfs

@@ -15,76 +15,80 @@ message CommonResponse {
   Response common = 1;
 };
 
-message LsNNRequest {
+message NNLsRequest {
   string path = 1;
 }
-message LsNNResponse {
+message NNLsResponse {
   Response common = 1;
   repeated string data = 2;
 };
 
-message MkdirNNRequest {
+message NNMkdirRequest {
   string path = 1;
 }
 
-message GetNNRequest {
+message NNGetRequest {
   string path = 1;
 }
-message GetNNResponse {
+message NNGetResponse {
   Response common = 1;
   repeated uint32 blkids = 2;
 };
 
-message PutNNRequest {
+message NNPutRequest {
   string path = 1;
   repeated uint32 blkids = 2;
   uint64 size = 3;
 }
-message PutNNResponse {
+message NNPutResponse {
   Response common = 1;
   repeated string nodes = 2;
 };
 
 
-message PutOKNNRequest {
+message NNPutOKRequest {
   string blkid = 1;
 };
 
-message GetMasterResponse {
+message NNGetMasterResponse {
   Response common = 1;
   string node = 2;
 }
 service NamenodeService {
-  rpc ls(LsNNRequest) returns (LsNNResponse);
-  rpc mkdir(MkdirNNRequest) returns (CommonResponse);
-  rpc get(GetNNRequest) returns (GetNNResponse);
-  rpc put(PutNNRequest) returns (PutNNResponse);
+  rpc ls(NNLsRequest) returns (NNLsResponse);
+  rpc mkdir(NNMkdirRequest) returns (CommonResponse);
+  rpc get(NNGetRequest) returns (NNGetResponse);
+  rpc put(NNPutRequest) returns (NNPutResponse);
   // datanode notice namenode blk storeed ok;
-  rpc put_ok(PutOKNNRequest) returns (CommonResponse);
-  rpc get_master(Request) returns (GetMasterResponse);
+  rpc put_ok(NNPutOKRequest) returns (CommonResponse);
+  rpc get_master(Request) returns (NNGetMasterResponse);
 };
 
-message GetDNRequest {
+message DNGetRequest {
   string blkid = 1;
 }
-message GetDNResponse {
+message DNGetResponse {
   Response common = 1;
   bytes data = 2;
 };
 
-message PutDNRequest {
+message DNPutRequest {
   string blkid = 1;
   bytes data = 2;
 };
 
-message GetNamenodesDNResponse {
+message DNGetNamenodesResponse {
   Response common = 1;
   repeated string nodes = 2;
 };
 
 service DatanodeService {
-  rpc put(PutDNRequest) returns (CommonResponse);
-  rpc get(GetDNRequest) returns (GetDNResponse);
-  rpc get_namenodes(Request) returns (GetNamenodesDNResponse);
+  rpc put(DNPutRequest) returns (CommonResponse);
+  rpc get(DNGetRequest) returns (DNGetResponse);
+  rpc get_namenodes(Request) returns (DNGetNamenodesResponse);
 };
+
+service CommonService {
+  rpc echo(Request) returns (CommonResponse);
+}
 

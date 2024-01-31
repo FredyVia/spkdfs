@@ -5,6 +5,7 @@
 #include <braft/raft.h>           // braft::Node braft::StateMachine
 #include <braft/storage.h>        // braft::SnapshotWriter
 #include <braft/util.h>           // braft::AsyncClosureGuard
+#include <brpc/closure_guard.h>
 #include <common/node.h>
 
 #include <functional>
@@ -20,13 +21,12 @@ namespace spkdfs {
   class RaftDN : public braft::StateMachine {
   private:
     braft::Node* volatile raft_node;
-
+    std::vector<Node> namenode_list;
     std::vector<Node> node_list;
 
     braft::NodeOptions node_options;
     // void leaderStartCallbackType(const Node& master);
     DNApplyCallbackType applyCallback;
-    std::mutex file_mutex;
 
   public:
     RaftDN(const std::vector<Node>& nodes, DNApplyCallbackType applyCallback);
@@ -35,12 +35,13 @@ namespace spkdfs {
     void start();
     void shutdown();
     std::vector<Node> get_namenodes();
-    void save_namenodes(const std::string& str);
+
+    void inline set_namenodes(const std::vector<Node>& nodes) { namenode_list = nodes; }
 
     void on_apply(braft::Iterator& iter) override;
     // void on_shutdown() override;
-    // void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;
-    // int on_snapshot_load(braft::SnapshotReader* reader) override;
+    void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;
+    int on_snapshot_load(braft::SnapshotReader* reader) override;
     void on_leader_start(int64_t term) override;
     // void on_leader_stop(const butil::Status& status) override;
     // void on_error(const ::braft::Error& e) override;

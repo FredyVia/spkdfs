@@ -3,7 +3,7 @@
 #include <arpa/inet.h>
 #include <butil/logging.h>
 
-#include "common/config.h"
+#include "node/config.h"
 namespace spkdfs {
 
   using namespace std;
@@ -13,7 +13,7 @@ namespace spkdfs {
     butil::EndPoint addr(butil::my_ip(), FLAGS_nn_port);
     node_options.fsm = this;
     node_options.node_owns_fsm = false;
-    std::string prefix = "local://" + FLAGS_data_path + "/namenode";
+    std::string prefix = "local://" + FLAGS_data_dir + "/namenode";
     node_options.log_uri = prefix + "/log";
     node_options.raft_meta_uri = prefix + "/raft_meta";
     node_options.snapshot_uri = prefix + "/snapshot";
@@ -55,6 +55,7 @@ namespace spkdfs {
     // 实现细节
     for (; iter.valid(); iter.next()) {
       iter.data();
+      braft::AsyncClosureGuard closure_guard(iter.done());
     }
   }
 

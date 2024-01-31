@@ -4,18 +4,27 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 #include <brpc/server.h>      // brpc::Server
+#include <glog/logging.h>
 
 #include <exception>
 #include <functional>
 #include <thread>
 
-#include "common/config.h"
+#include "dbg.h"
 #include "service.pb.h"
 
 namespace spkdfs {
   using namespace std;
+  using namespace dbg;
   using namespace braft;
   Node Node::INVALID_NODE = Node("0.0.0.0", 0);
+
+  braft::PeerId Node::to_peerid() const {
+    butil::EndPoint ep;
+    butil::str2endpoint(ip.c_str(), port, &ep);
+    braft::PeerId peerid(ep);
+    return peerid;
+  }
 
   void Node::scan() {
     brpc::Channel channel;
@@ -24,43 +33,32 @@ namespace spkdfs {
       throw runtime_error("channel init failed");
     }
 
-    NamenodeService_Stub stub(&channel);
     brpc::Controller cntl;
     Request request;
-    GetMasterResponse response;
+    CommonResponse response;
 
-    stub.get_master(&cntl, &request, &response, NULL);
+    cntl.set_timeout_ms(10000);
+    CommonService_Stub stub(&channel);
+    stub.echo(&cntl, &request, &response, NULL);
+
+    LOG(INFO) << (*this) << endl;
     if (cntl.Failed()) {
+      LOG(WARNING) << "RPC failed: " << cntl.ErrorText() << endl;
+      LOG(WARNING) << "OFFLINE" << endl;
       nodeStatus = NodeStatus::OFFLINE;
     } else {
       nodeStatus = NodeStatus::ONLINE;
+      LOG(INFO) << "ONLINE" << endl;
     }
   }
-
-  braft::PeerId Node::to_peerid() const {
-    butil::EndPoint ep;
-    butil::str2endpoint(ip.c_str(), port, &ep);
-    braft::PeerId peerid(ep);
-    return peerid;
-  }
-  bool Node::operator==(const Node& other) const { return ip == other.ip && port == other.port; }
+  bool Node::operator==(const Node& other) const { return ip == other.ip; }
   bool Node::operator!=(const Node& other) const { return !(*this == other); }
-  bool Node::operator<(const Node& other) const { return ip < other.ip && port < other.port; }
-  void Node::toNNNode() { port = FLAGS_nn_port; }
-  void Node::toDNNode() { port = FLAGS_dn_port; }
-  bool Node::valid() { return *this == INVALID_NODE; }
-
-  void node_discovery(std::vector<Node>& nodes) {
-    std::vector<std::thread> threads;
-
-    for (auto& node : nodes) {
-      threads.emplace_back(std::bind(&Node::scan, &node));
-    }
-
-    for (auto& t : threads) {
-      t.join();
-    }
+  bool Node::operator<(const Node& other) const { return ip < other.ip; }
+  std::ostream& operator<<(std::ostream& out, const Node& node) {
+    out << to_string(node);
+    return out;
   }
+  bool Node::valid() { return *this == INVALID_NODE; }
 
   std::string to_string(const vector<Node>& nodes) {
     std::ostringstream oss;
@@ -87,5 +85,21 @@ namespace spkdfs {
   void from_peerId(braft::PeerId peerid, Node& node) {
     node.ip = inet_ntoa(peerid.addr.ip);
     node.port = peerid.addr.port;
+  }
+
+  void node_discovery(std::vector<Node>& nodes) {
+    std::vector<std::thread> threads;
+
+    for (auto& node : nodes) {
+      threads.emplace_back(std::bind(&Node::scan, &node));
+    }
+
+    for (auto& t : threads) {
+      t.join();
+    }
+    for (const auto& node : nodes) {
+      LOG(INFO) << node << endl;
+      pretty_print(LOG(INFO), node.nodeStatus);
+    }
   }
 }  // namespace spkdfs

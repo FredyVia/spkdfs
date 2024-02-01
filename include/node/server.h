@@ -12,6 +12,7 @@
 #include "node/namenode.h"
 #include "node/raft_dn.h"
 #include "node/raft_nn.h"
+#include "node/sqlitedb.h"
 
 namespace spkdfs {
 
@@ -22,12 +23,13 @@ namespace spkdfs {
     void start();
 
   private:
+    SqliteDB db;
     brpc::Server nn_server;
     brpc::Server dn_server;
     // brpc::Server dn_rpc_server;
     // brpc::Server dn_raft_server;
-    RaftDN* dn_raft_ptr;
-    RaftNN* nn_raft_ptr;
+    RaftDN* dn_raft_ptr = nullptr;
+    RaftNN* nn_raft_ptr = nullptr;
     void on_namenode_master_change(const Node& node);
     Node leader();
     void on_namenodes_change(const std::vector<Node>& namenodes);

@@ -41,14 +41,14 @@ namespace spkdfs {
     CommonService_Stub stub(&channel);
     stub.echo(&cntl, &request, &response, NULL);
 
-    LOG(INFO) << (*this) << endl;
+    LOG(INFO) << (*this);
     if (cntl.Failed()) {
-      LOG(WARNING) << "RPC failed: " << cntl.ErrorText() << endl;
-      LOG(WARNING) << "OFFLINE" << endl;
+      LOG(WARNING) << "RPC failed: " << cntl.ErrorText();
+      LOG(WARNING) << "OFFLINE";
       nodeStatus = NodeStatus::OFFLINE;
     } else {
       nodeStatus = NodeStatus::ONLINE;
-      LOG(INFO) << "ONLINE" << endl;
+      LOG(INFO) << "ONLINE";
     }
   }
   bool Node::operator==(const Node& other) const { return ip == other.ip; }
@@ -58,7 +58,7 @@ namespace spkdfs {
     out << to_string(node);
     return out;
   }
-  bool Node::valid() { return *this == INVALID_NODE; }
+  bool Node::valid() { return *this != INVALID_NODE; }
 
   std::string to_string(const vector<Node>& nodes) {
     std::ostringstream oss;
@@ -98,7 +98,7 @@ namespace spkdfs {
       t.join();
     }
     for (const auto& node : nodes) {
-      LOG(INFO) << node << endl;
+      LOG(INFO) << node;
       pretty_print(LOG(INFO), node.nodeStatus);
     }
   }

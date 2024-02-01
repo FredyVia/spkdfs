@@ -17,12 +17,14 @@ namespace spkdfs {
 
   class NamenodeServiceImpl : public NamenodeService {
   public:
-    NamenodeServiceImpl(
-        // IsLeaderCallbackType isLeaderCallback,
-        NNGetLeaderCallbackType getLeaderCallback, NNApplyCallbackType applyCallback)
+    NamenodeServiceImpl(SqliteDB& db,
+                        // IsLeaderCallbackType isLeaderCallback,
+                        NNGetLeaderCallbackType getLeaderCallback,
+                        NNApplyCallbackType applyCallback)
         :  // isLeaderCallback(isLeaderCallback),
           getLeaderCallback(getLeaderCallback),
-          applyCallback(applyCallback) {}
+          applyCallback(applyCallback),
+          db(db) {}
     void ls(::google::protobuf::RpcController* controller, const NNLsRequest* request,
             NNLsResponse* response, ::google::protobuf::Closure* done) override;
     void mkdir(::google::protobuf::RpcController* controller, const NNMkdirRequest* request,
@@ -38,25 +40,9 @@ namespace spkdfs {
 
   private:
     // IsLeaderCallbackType isLeaderCallback;
-    SqliteDB db;
+    SqliteDB& db;
     NNGetLeaderCallbackType getLeaderCallback;
     NNApplyCallbackType applyCallback;
-  };
-  class LambdaClosure : public braft::Closure {
-  public:
-    using FuncType = std::function<void()>;
-
-    explicit LambdaClosure(FuncType func) : _func(std::move(func)) {}
-
-    void Run() override {
-      if (_func) {
-        _func();  // 调用 lambda 表达式
-      }
-      delete this;
-    }
-
-  private:
-    FuncType _func;  // 存储 lambda 表达式
   };
 }  // namespace spkdfs
 #endif

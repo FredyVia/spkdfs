@@ -3,7 +3,7 @@
 # Breakpad 工具的路径
 DUMP_SYMS_PATH="/home/fredyvia/breakpad/breakpad/src/tools/linux/dump_syms/dump_syms"
 MINIDUMP_STACKWALK_PATH="/home/fredyvia/breakpad/breakpad/src/processor/minidump_stackwalk"
-
+DUMP_CORE_PATH="/home/fredyvia/breakpad/breakpad/src/tools/linux/md2core/minidump-2-core"
 # 二进制文件路径
 BINARY_FILE="build/node"
 
@@ -38,7 +38,7 @@ for DUMP_DIR in tmp/spkdfs_*; do
       if [ ! -f "$DUMP_FILE" ]; then
         continue
       fi
-
+      $DUMP_CORE_PATH $DUMP_FILE > /tmp/$NODE_ID.dmp
       REPORT_FILE="$REPORTS_DIR/report_node_${NODE_ID}.txt"
       $MINIDUMP_STACKWALK_PATH "$DUMP_FILE" "$SYMBOLS_DIR" >"$REPORT_FILE"
 

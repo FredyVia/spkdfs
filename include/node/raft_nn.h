@@ -10,26 +10,28 @@
 
 #include "common/inode.h"
 #include "common/node.h"
+#include "node/sqlitedb.h"
 
 namespace spkdfs {
   // using LeaderChangeCallbackType = std::function<void(const std::vector<Node>&)>;
 
   class RaftNN : public braft::StateMachine {
   private:
+    SqliteDB& db;
     braft::NodeOptions node_options;
     braft::Node* volatile raft_node;
 
     // friend class boost::serialization::access;
   public:
     void change_peers(const std::vector<Node>& namenodes);
-    RaftNN(const std::vector<Node>& nodes);
+    RaftNN(const std::vector<Node>& nodes, SqliteDB& db);
     ~RaftNN();
     void start();
-    bool is_leader() const;
+    // bool is_leader() const;
     Node leader();
     void shutdown();
-    void apply(braft::Task task);
-    
+    void apply(const braft::Task& task);
+
     void on_apply(braft::Iterator& iter) override;
     // void on_shutdown() override;
     // void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;

@@ -20,12 +20,12 @@ bool createDirectoryIfNotExist(const std::string& dir) {
   if (stat(dir.c_str(), &info) != 0) {
     // 目录不存在，尝试创建
     if (mkdir(dir.c_str(), 0755) == -1) {
-      LOG(ERROR) << "Error: Unable to create directory " << dir << std::endl;
+      LOG(ERROR) << "Error: Unable to create directory " << dir;
       return false;
     }
   } else if (!(info.st_mode & S_IFDIR)) {
     // 路径存在，但不是一个目录
-    LOG(ERROR) << "Error: " << dir << " exists and is not a directory." << std::endl;
+    LOG(ERROR) << "Error: " << dir << " exists and is not a directory.";
     return false;
   }
   return true;
@@ -40,13 +40,13 @@ int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   createDirectoryIfNotExist(FLAGS_log_dir);
   google::InitGoogleLogging(argv[0]);
-
   createDirectoryIfNotExist(FLAGS_coredumps_dir);
   google_breakpad::MinidumpDescriptor descriptor(FLAGS_coredumps_dir);
   google_breakpad::ExceptionHandler eh(descriptor, NULL, dumpCallback, NULL, true, -1);
   auto nodes = parse_nodes(FLAGS_nodes);
   spkdfs::Server server(nodes);
+  LOG(INFO) << "going to start server";
   server.start();
-  // cout << "exit" << endl;
+  // cout << "exit" ;
   return 0;
 }

@@ -47,7 +47,7 @@ namespace spkdfs {
   void RaftDN::start() {
     // 实现细节
     if (raft_node->init(node_options) != 0) {
-      LOG(ERROR) << "Fail to init raft node" << endl;
+      LOG(ERROR) << "Fail to init raft node";
       throw runtime_error("raft datanode init failed");
     }
   }
@@ -62,7 +62,7 @@ namespace spkdfs {
       braft::AsyncClosureGuard closure_guard(iter.done());
     }
     string data_str = data.to_string();
-    LOG(INFO) << "got namenodes:" << data_str << endl;
+    LOG(INFO) << "got namenodes:" << data_str;
     auto _json = json::parse(data_str);
     namenode_list = _json.get<vector<Node>>();
     applyCallback(namenode_list);
@@ -71,7 +71,7 @@ namespace spkdfs {
   vector<Node> RaftDN::get_namenodes() { return namenode_list; }
   void RaftDN::on_leader_start(int64_t term) {
     backward::SignalHandling sh;
-    LOG(INFO) << "Node becomes leader" << endl;
+    LOG(INFO) << "Node becomes leader";
     vector<Node> nodes = get_namenodes();
     std::sort(nodes.begin(), nodes.end());
 
@@ -81,11 +81,13 @@ namespace spkdfs {
         std::remove_if(nodes.begin(), nodes.end(),
                        [](const Node& node) { return node.nodeStatus != NodeStatus::ONLINE; }),
         nodes.end());
-    LOG(INFO) << "nodes status: " << endl;
+    LOG(INFO) << "online nodes";
     pretty_print(LOG(INFO), nodes);
     vector<Node> allnodes = node_list;
 
-    dbg(allnodes);
+    LOG(INFO) << "allnodes: ";
+    pretty_print(LOG(INFO), allnodes);
+
     // 从 allnodes 中删除在 nodes 中的节点
     allnodes.erase(std::remove_if(allnodes.begin(), allnodes.end(),
                                   [&nodes](const Node& node) {
@@ -111,9 +113,10 @@ namespace spkdfs {
         }
       }
     }
-    dbg(nodes);
+    LOG(INFO) << "chosen namenodes:";
+    pretty_print(LOG(INFO), nodes);
     if (nodes.empty()) {
-      LOG(ERROR) << "no node ready" << endl;
+      LOG(ERROR) << "no node ready";
       throw runtime_error("no node ready");
     }
 
@@ -131,14 +134,14 @@ namespace spkdfs {
   }
 
   // void RaftDN::on_leader_stop(const butil::Status& status) {
-  //   LOG(INFO) << "Node stepped down : " << status<< endl;
+  //   LOG(INFO) << "Node stepped down : " << status;
   // }
   void RaftDN::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     string file_path = writer->get_path() + "/namenodes.json";
     ofstream file(file_path, fstream::out);
     if (!file) {
-      LOG(ERROR) << "Failed to open file for writing." << endl;
+      LOG(ERROR) << "Failed to open file for writing.";
       done->status().set_error(EIO, "Fail to save " + file_path);
     }
     json j = json::array();
@@ -153,7 +156,7 @@ namespace spkdfs {
     string str;
     ifstream file(file_path, std::fstream::in | std::fstream::out | std::fstream::app);
     if (!file) {
-      LOG(ERROR) << "Failed to open file for reading." << endl;
+      LOG(ERROR) << "Failed to open file for reading.";
       return -1;
     }
     file >> str;
@@ -162,11 +165,12 @@ namespace spkdfs {
       auto _json = json::parse(str);
       namenode_list = _json.get<vector<Node>>();
     }
-    dbg(namenode_list);
+    LOG(INFO) << "propose namenodes:";
+    pretty_print(LOG(INFO), namenode_list);
   }
 
-  // void RaftDN::on_shutdown() { LOG(INFO) << "This node is down" << endl; }
-  // void RaftDN::on_error(const ::braft::Error& e) { LOG(ERROR) << "Met raft error " << e << endl;
+  // void RaftDN::on_shutdown() { LOG(INFO) << "This node is down" ; }
+  // void RaftDN::on_error(const ::braft::Error& e) { LOG(ERROR) << "Met raft error " << e ;
   // } void RaftDN::on_configuration_committed(const ::braft::Configuration& conf) {
   //   LOG(INFO) << "Configuration of this group is " << conf;
   // }

@@ -15,8 +15,8 @@ namespace spkdfs {
   using NamenodesCallbackType = std::function<std::vector<Node>()>;
   class DatanodeServiceImpl : public DatanodeService {
   public:
-    DatanodeServiceImpl(NamenodesCallbackType namenodesCallbackType)
-        : namenodesCallbackType(namenodesCallbackType) {}
+    DatanodeServiceImpl(const NamenodesCallbackType& namenodesCallback)
+        : namenodesCallback(namenodesCallback) {}
     void set_namenode_master(Node node);
     void put(::google::protobuf::RpcController* controller, const DNPutRequest* request,
              CommonResponse* response, ::google::protobuf::Closure* done) override;
@@ -28,7 +28,7 @@ namespace spkdfs {
 
   private:
     void check_status();
-    NamenodesCallbackType namenodesCallbackType;
+    NamenodesCallbackType namenodesCallback;
 
     Node namenode_master;
     brpc::Channel channel;

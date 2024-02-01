@@ -58,7 +58,9 @@ namespace spkdfs {
                        {"valid", inode.valid},
                        {"building", inode.building}};
   }
+  // inline std::string to_string(const Inode& inode){
 
+  // }
   inline void from_json(const nlohmann::json& j, Inode& inode) {
     inode.parent_path = j.at("parent_path").get<std::string>();
     inode.filename = j.at("filename").get<std::string>();

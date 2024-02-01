@@ -3,13 +3,15 @@
 #include <arpa/inet.h>
 #include <butil/logging.h>
 
+#include <nlohmann/json.hpp>
+
 #include "node/config.h"
 namespace spkdfs {
 
   using namespace std;
   using namespace spkdfs;
-
-  RaftNN::RaftNN(const vector<Node>& nodes) : raft_node(NULL) {
+  using json = nlohmann::json;
+  RaftNN::RaftNN(const vector<Node>& nodes, SqliteDB& db) : db(db) {
     butil::EndPoint addr(butil::my_ip(), FLAGS_nn_port);
     node_options.fsm = this;
     node_options.node_owns_fsm = false;
@@ -25,8 +27,15 @@ namespace spkdfs {
   Node RaftNN::leader() {
     Node node;
     braft::PeerId leader = raft_node->leader_id();
-    node.ip = inet_ntoa(leader.addr.ip);
-    node.port = leader.addr.port;
+    if (leader.is_empty()) {
+      LOG(INFO) << "I'm leader";
+      node.ip = butil::my_ip_cstr();
+      node.port = FLAGS_nn_port;
+    } else {
+      node.ip = inet_ntoa(leader.addr.ip);
+      node.port = leader.addr.port;
+    }
+    LOG(INFO) << "leader: " << node;
     return node;
   }
 
@@ -40,22 +49,27 @@ namespace spkdfs {
 
   void RaftNN::change_peers(const std::vector<Node>& namenodes) {
     string s = to_string(namenodes);
+    LOG(INFO) << s;
     braft::Configuration conf;
     conf.parse_from(s);
     raft_node->change_peers(conf, NULL);
   }
 
-  bool RaftNN::is_leader() const { return raft_node->is_leader(); }
+  // bool RaftNN::is_leader() const { return raft_node->is_leader(); }
 
   void RaftNN::shutdown() { raft_node->shutdown(NULL); }
 
-  void RaftNN::apply(braft::Task task) { raft_node->apply(task); }
+  void RaftNN::apply(const braft::Task& task) { raft_node->apply(task); }
 
   void RaftNN::on_apply(braft::Iterator& iter) {
     // 实现细节
+    Inode inode;
     for (; iter.valid(); iter.next()) {
-      iter.data();
       braft::AsyncClosureGuard closure_guard(iter.done());
+      LOG(INFO) << "internal mkdir" << iter.data().to_string();
+      auto j = json::parse(iter.data().to_string());
+      inode = j.get<Inode>();
+      db.internal_mkdir(inode);
     }
   }
 

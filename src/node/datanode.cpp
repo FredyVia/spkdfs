@@ -35,7 +35,7 @@ namespace spkdfs {
       auto file_path = FLAGS_data_dir + "/blks/blk_" + request->blkid();
       ofstream file(file_path, ios::binary);
       if (!file) {
-        LOG(ERROR) << "Failed to open file for writing." << endl;
+        LOG(ERROR) << "Failed to open file for writing.";
         throw runtime_error("openfile error:" + file_path);
       }
       file << request->data();
@@ -54,7 +54,7 @@ namespace spkdfs {
       }
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
-      LOG(ERROR) << e.what() << endl;
+      LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
@@ -70,7 +70,7 @@ namespace spkdfs {
       std::ifstream file(
           file_path, std::ios::binary | std::ios::ate);  // 打开文件并移动到文件末尾以确定文件大小
       if (!file) {
-        LOG(ERROR) << "Failed to open file for reading." << std::endl;
+        LOG(ERROR) << "Failed to open file for reading.";
         throw std::runtime_error("openfile error:" + file_path);
       }
       file >> *(response->mutable_data());
@@ -79,7 +79,7 @@ namespace spkdfs {
       // 将读取的数据设置到响应中
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
-      LOG(ERROR) << e.what() << endl;
+      LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
@@ -89,7 +89,9 @@ namespace spkdfs {
                                           const Request* request, DNGetNamenodesResponse* response,
                                           ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
-    auto nodes = namenodesCallbackType();
+    LOG(INFO) << "get_namenodes_call";
+    auto nodes = namenodesCallback();
+    LOG(INFO) << to_string(nodes);
     for (const auto& node : nodes) {
       std::string node_str = to_string(node);
       response->add_nodes(node_str);

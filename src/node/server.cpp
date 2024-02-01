@@ -37,29 +37,28 @@ namespace spkdfs {
     }
   }
   void Server::on_namenodes_change(const std::vector<Node>& namenodes) {
+    LOG(INFO) << "butil::my_ip_cstr(): " << butil::my_ip_cstr();
     bool found = any_of(namenodes.begin(), namenodes.end(),
                         [](const Node& node) { return node.ip == butil::my_ip_cstr(); });
     if (found) {
-      LOG(INFO) << "I'm in namenodes list" << endl;
+      LOG(INFO) << "I'm in namenodes list";
       if (nn_raft_ptr != nullptr) {
-        LOG(INFO) << "change_peers" << to_string(namenodes) << endl;
+        LOG(INFO) << "change_peers:" << to_string(namenodes);
         nn_raft_ptr->change_peers(namenodes);
         return;
       }
-      LOG(INFO) << "start new namenode" << endl;
+      LOG(INFO) << "start new namenode";
       CommonServiceImpl* nn_common_service_ptr = new CommonServiceImpl();
       NamenodeServiceImpl* nn_service_ptr = new NamenodeServiceImpl(
-          [this]() {
-            return this->nn_raft_ptr == nullptr ? Node::INVALID_NODE : this->nn_raft_ptr->leader();
-          },
+          db,
+          [this]() { return nn_raft_ptr == nullptr ? Node::INVALID_NODE : nn_raft_ptr->leader(); },
           [this](const Task& task) {
-            if (nn_raft_ptr) {
-              nn_raft_ptr->apply(task);
-            } else {
+            if (nn_raft_ptr == nullptr) {
               throw runtime_error("nn raft not running");
             }
+            nn_raft_ptr->apply(task);
           });
-      nn_raft_ptr = new RaftNN(namenodes);
+      nn_raft_ptr = new RaftNN(namenodes, db);
 
       if (nn_server.AddService(nn_common_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
         throw runtime_error("server failed to add common nn service");
@@ -71,17 +70,18 @@ namespace spkdfs {
         throw runtime_error("server failed to add nn service");
       }
       if (nn_server.Start(FLAGS_nn_port, NULL) != 0) {
-        throw runtime_error("server failed to add nn service");
+        throw runtime_error("nn server failed to start service");
       }
+      nn_raft_ptr->start();
       return;
     }
     if (nn_raft_ptr != nullptr) {
-      LOG(INFO) << "I'm going to stop namenode" << endl;
+      LOG(INFO) << "I'm going to stop namenode";
       nn_raft_ptr->shutdown();
       nn_server.Stop(0);
       nn_server.Join();
       delete nn_raft_ptr;
-      nn_raft_ptr == nullptr;
+      nn_raft_ptr = nullptr;
       nn_server.ClearServices();
     }
   }
@@ -105,10 +105,10 @@ namespace spkdfs {
   }
   void Server::start() {
     if (dn_server.Start(FLAGS_dn_port, NULL) != 0) {
-      LOG(ERROR) << "Fail to start Server" << endl;
+      LOG(ERROR) << "Fail to start Server";
       throw runtime_error("start service failed");
     }
-    waiting_for_rpc();
+    // waiting_for_rpc();
     dn_raft_ptr->start();
     int count = 0;
     while (!brpc::IsAskedToQuit()) {
@@ -116,15 +116,15 @@ namespace spkdfs {
       count++;
       if (count == 5) {
         count = 0;
-        LOG(INFO) << "Running" << endl;
+        LOG(INFO) << "Running";
       }
     }
   }
   Node Server::leader() {
-    if (nn_raft_ptr) {
-      return nn_raft_ptr->leader();
+    if (nn_raft_ptr == nullptr) {
+      throw runtime_error("not running namenode");
     }
-    throw runtime_error("not running namenode");
+    return nn_raft_ptr->leader();
   }
   Server::~Server() {
     nn_server.Stop(0);
@@ -132,12 +132,12 @@ namespace spkdfs {
 
     dn_server.Stop(0);
     dn_server.Join();
-    if (nn_raft_ptr!=nullptr) {
+    if (nn_raft_ptr != nullptr) {
       nn_raft_ptr->shutdown();
       delete nn_raft_ptr;
       nn_raft_ptr = nullptr;
     }
-    if (dn_raft_ptr) {
+    if (dn_raft_ptr != nullptr) {
       dn_raft_ptr->shutdown();
       delete dn_raft_ptr;
       dn_raft_ptr = nullptr;

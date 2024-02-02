@@ -18,12 +18,7 @@ namespace spkdfs {
     CommonServiceImpl* dn_common_service_ptr;
     dn_common_service_ptr = new CommonServiceImpl();
 
-    dn_service_ptr = new DatanodeServiceImpl([this]() {
-      if (dn_raft_ptr == nullptr) {
-        throw runtime_error("raft datanode not ok");
-      }
-      return dn_raft_ptr->get_namenodes();
-    });
+    dn_service_ptr = new DatanodeServiceImpl(dn_raft_ptr);
     dn_raft_ptr
         = new RaftDN(nodes, std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
     if (dn_server.AddService(dn_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {

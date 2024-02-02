@@ -4,19 +4,21 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include "mln_rs.h"
 
+#include "client/mln_rs.h"
 #include "common/node.h"
 #include "service.pb.h"
 using namespace std;
 using namespace spkdfs;
 using namespace brpc;
 
+DEFINE_string(command, "ls", "command type: ls mkdir put get");
 DEFINE_string(datanode, "127.0.0.1:18001", "skip when namenode or master specified");
 DEFINE_string(namenode, "", "skip when master avaiable");
 DEFINE_string(namenode_master, "", "optional, namenode_master addr: <addr>");
+DEFINE_uint32(block_size, 16, "optional, BLOCK size MB");
 
-NamenodeService_Stub* nn_master_stub;
+NamenodeService_Stub *nn_master_stub;
 Channel nn_master_channel;
 void Init() {
   if (FLAGS_namenode_master == "" && FLAGS_namenode == "") {
@@ -73,57 +75,77 @@ void Init() {
   nn_master_stub = new NamenodeService_Stub(&nn_master_channel);
   cout << "successfully connected to namenode master" << endl;
 }
-void mkdir() {}
+void ls(const string &s) {
+  Controller cntl;
+  NNLsRequest request;
+  NNLsResponse response;
+  *(request.mutable_path()) = s;
+  nn_master_stub->ls(&cntl, &request, &response, NULL);
+  if (cntl.Failed()) {
+    cerr << "RPC failed: " << cntl.ErrorText();
+    throw runtime_error("RPC failed: " + cntl.ErrorText());
+  }
+  if (!response.common().success()) {
+    cerr << "failed" << response.common().fail_info() << endl;
+    throw runtime_error("response show failed: " + response.common().fail_info());
+  }
+  for (auto str : response.data()) {
+    cout << str << endl;
+  }
+}
+void mkdir(const string &dst) {
+  Controller cntl;
+  NNMkdirRequest request;
+  CommonResponse response;
+  *(request.mutable_path()) = dst;
+  nn_master_stub->mkdir(&cntl, &request, &response, NULL);
+  if (cntl.Failed()) {
+    cerr << "RPC failed: " << cntl.ErrorText();
+    throw runtime_error("RPC failed: " + cntl.ErrorText());
+  }
+  if (!response.common().success()) {
+    cerr << "failed" << response.common().fail_info() << endl;
+    throw runtime_error("response show failed: " + response.common().fail_info());
+  }
+  cout << "success" << endl;
+}
 
-vector<Node> get_namenodes() {}
+void put(string src, string dst) {
+  cout << "using block size: " << FLAGS_block_size << endl;
+  cout << "opening file " << src;
 
-int main(int argc, char* argv[]) {
+  string block;
+  block.reserve(FLAGS_block_size);
+
+  mln_rs_result_t *res, *dres;
+
+  uint8_t *err[6] = {0};
+  // mln_string_t tmp;
+
+  // res = mln_rs_encode((uint8_t *)origin, 4, 4, 2);
+  if (res == NULL) {
+    fprintf(stderr, "rs encode failed.\n");
+    throw runtime_error("rs encode error");
+  }
+}
+
+int main(int argc, char *argv[]) {
+  gflags::ParseCommandLineFlags(&argc, &argv, false);
   // 初始化 channel
   if (argc < 3) {
     cout << "help" << endl;
     return -1;
   }
   Init();
-
-  std::string command = argv[1];
-
-  Controller cntl;
-  if (command == "-put") {
-
+  if (FLAGS_command == "-put") {
+    put(argv[2], argv[3]);
     // 处理 -put 命令
-  } else if (command == "-get") {
+  } else if (FLAGS_command == "-get") {
     // 处理 -get 命令
-  } else if (command == "-ls") {
-    NNLsRequest request;
-    NNLsResponse response;
-    *(request.mutable_path()) = argv[2];
-    nn_master_stub->ls(&cntl, &request, &response, NULL);
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      return -2;
-    }
-    if (!response.common().success()) {
-      cerr << command << " failed" << endl;
-      return -2;
-    }
-    for (auto str : response.data()) {
-      cout << str << endl;
-    }
-    // 处理 -ls 命令
-  } else if (command == "-mkdir") {
-    NNMkdirRequest request;
-    CommonResponse response;
-    *(request.mutable_path()) = argv[2];
-    nn_master_stub->mkdir(&cntl, &request, &response, NULL);
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      return -2;
-    }
-    if (!response.common().success()) {
-      cerr << command << " failed" << endl;
-      return -2;
-    }
-    cout << "success" << endl;
+  } else if (FLAGS_command == "-ls") {
+    ls(argv[2]);
+  } else if (FLAGS_command == "-mkdir") {
+    mkdir(argv[2]);
   } else {
     cerr << "unknown command" << endl;
   }

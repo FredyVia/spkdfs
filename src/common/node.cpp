@@ -60,6 +60,11 @@ namespace spkdfs {
   }
   bool Node::valid() { return *this != INVALID_NODE; }
 
+  void Node::from_peerId(braft::PeerId peerid) {
+    ip = inet_ntoa(peerid.addr.ip);
+    port = peerid.addr.port;
+  }
+
   std::string to_string(const vector<Node>& nodes) {
     std::ostringstream oss;
     for (const auto& node : nodes) {
@@ -80,11 +85,6 @@ namespace spkdfs {
       res.push_back(node);
     }
     return res;
-  }
-
-  void from_peerId(braft::PeerId peerid, Node& node) {
-    node.ip = inet_ntoa(peerid.addr.ip);
-    node.port = peerid.addr.port;
   }
 
   void node_discovery(std::vector<Node>& nodes) {

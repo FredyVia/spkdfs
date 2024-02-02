@@ -66,6 +66,39 @@ namespace spkdfs {
     auto _json = json::parse(data_str);
     namenode_list = _json.get<vector<Node>>();
     applyCallback(namenode_list);
+    if (leader().ip != butil::my_ip_cstr()) {
+      if (nn_timer != nullptr) {
+        delete nn_timer;
+      }
+      return;
+    }
+    nn_timer = new NNTimer(
+        20,
+        [this]() {
+          size_t retryCount = 0;  // 重试计数器
+          for (size_t i = 0; i < namenode_list.size(); ++i) {
+            namenode_list[i].scan();
+            if (namenode_list[i].nodeStatus == NodeStatus::OFFLINE) {
+              if (retryCount >= 3) {  // 允许最多重试3次
+                throw NNTimer::TimeoutException("timeout", namenode_list[i].ip.c_str());
+              }
+              i--;           // 减少索引以在下一次迭代中重新扫描同一节点
+              retryCount++;  // 增加重试计数器
+              continue;      // 跳过当前迭代的其余部分
+            }
+            retryCount = 0;  // 重置重试计数器
+          }
+        },
+        [this](const void* args) {
+          string lossip = string(static_cast<const char*>(args));
+          LOG(INFO) << "lossIP: " << lossip;
+          on_nodes_loss({});
+        });
+  }
+  // my onw callback, not override
+  void RaftDN::on_nodes_loss(const vector<Node>& node) {
+    LOG(INFO) << "on_nodes_loss" << endl;
+    on_leader_start(0);
   }
 
   vector<Node> RaftDN::get_namenodes() { return namenode_list; }
@@ -133,6 +166,19 @@ namespace spkdfs {
     raft_node->apply(task);
   }
 
+  Node RaftDN::leader() {
+    Node node;
+    braft::PeerId leader = raft_node->leader_id();
+    if (leader.is_empty()) {
+      LOG(INFO) << "I'm leader";
+      node.ip = butil::my_ip_cstr();
+      node.port = FLAGS_nn_port;
+    } else {
+      node.from_peerId(leader);
+    }
+    LOG(INFO) << "leader: " << node;
+    return node;
+  }
   // void RaftDN::on_leader_stop(const butil::Status& status) {
   //   LOG(INFO) << "Node stepped down : " << status;
   // }
@@ -167,6 +213,25 @@ namespace spkdfs {
     }
     LOG(INFO) << "propose namenodes:";
     pretty_print(LOG(INFO), namenode_list);
+  }
+  NNTimer::NNTimer(uint interval, const RunFuncType& runFunc, const TimeoutFuncType& timeoutFunc)
+      : interval(interval), runFunc(runFunc), timeoutFunc(timeoutFunc) {
+    t = new std::thread([this]() {
+      try {
+        while (running) {
+          std::this_thread::sleep_for(std::chrono::seconds(this->interval));
+          this->runFunc();
+        }
+      } catch (const TimeoutException& e) {
+        running = false;
+        this->timeoutFunc(e.get_data());
+      }
+    });
+  }
+  NNTimer::~NNTimer() {
+    running = false;
+    t->join();
+    delete t;
   }
 
   // void RaftDN::on_shutdown() { LOG(INFO) << "This node is down" ; }

@@ -10,13 +10,12 @@
 #include "common/node.h"
 #include "node/sqlitedb.h"
 #include "service.pb.h"
+#include "node/raft_dn.h"
 
 namespace spkdfs {
-  using NamenodesCallbackType = std::function<std::vector<Node>()>;
   class DatanodeServiceImpl : public DatanodeService {
   public:
-    DatanodeServiceImpl(const NamenodesCallbackType& namenodesCallback)
-        : namenodesCallback(namenodesCallback) {}
+    DatanodeServiceImpl(RaftDN* dn_raft_ptr) : dn_raft_ptr(dn_raft_ptr){};
     void set_namenode_master(Node node);
     void put(::google::protobuf::RpcController* controller, const DNPutRequest* request,
              CommonResponse* response, ::google::protobuf::Closure* done) override;
@@ -25,11 +24,13 @@ namespace spkdfs {
     void get_namenodes(::google::protobuf::RpcController* controller, const Request* request,
                        DNGetNamenodesResponse* response,
                        ::google::protobuf::Closure* done) override;
+    // void get_datanodes(::google::protobuf::RpcController* controller, const Request* request,
+    //                    DNGetDatanodesResponse* response,
+    //                    ::google::protobuf::Closure* done) override;
 
   private:
     void check_status();
-    NamenodesCallbackType namenodesCallback;
-
+    RaftDN* dn_raft_ptr;
     Node namenode_master;
     brpc::Channel channel;
     std::unique_ptr<NamenodeService_Stub> stub_ptr;

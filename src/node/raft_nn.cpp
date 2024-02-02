@@ -32,8 +32,7 @@ namespace spkdfs {
       node.ip = butil::my_ip_cstr();
       node.port = FLAGS_nn_port;
     } else {
-      node.ip = inet_ntoa(leader.addr.ip);
-      node.port = leader.addr.port;
+      node.from_peerId(leader);
     }
     LOG(INFO) << "leader: " << node;
     return node;

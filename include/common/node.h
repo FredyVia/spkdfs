@@ -26,6 +26,7 @@ namespace spkdfs {
     bool valid();
     static Node INVALID_NODE;
     braft::PeerId to_peerid() const;
+    void from_peerId(braft::PeerId peerid);
   };
   // 仅适用于具有迭代器的类型
   std::string to_string(const std::vector<Node>& nodes);
@@ -39,7 +40,6 @@ namespace spkdfs {
     std::getline(iss, portStr);
     node.port = portStr.empty() ? 0 : std::stoi(portStr);
   };
-
   inline std::string to_string(const Node& node) {
     return node.ip + ":" + std::to_string(node.port);
   };

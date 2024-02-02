@@ -90,7 +90,7 @@ namespace spkdfs {
                                           ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     LOG(INFO) << "get_namenodes_call";
-    auto nodes = namenodesCallback();
+    auto nodes = dn_raft_ptr->get_namenodes();
     LOG(INFO) << to_string(nodes);
     for (const auto& node : nodes) {
       std::string node_str = to_string(node);
@@ -98,4 +98,18 @@ namespace spkdfs {
     }
     response->mutable_common()->set_success(true);
   }
+
+  // void DatanodeServiceImpl::get_datanodes(::google::protobuf::RpcController* controller,
+  //                                         const Request* request, DNGetDatanodesResponse* response,
+  //                                         ::google::protobuf::Closure* done) {
+  //   brpc::ClosureGuard done_guard(done);
+  //   LOG(INFO) << "get_datanodes_call";
+  //   auto nodes = dn_raft_ptr->;
+  //   LOG(INFO) << to_string(nodes);
+  //   for (const auto& node : nodes) {
+  //     std::string node_str = to_string(node);
+  //     response->add_nodes(node_str);
+  //   }
+  //   response->mutable_common()->set_success(true);
+  // }
 }  // namespace spkdfs

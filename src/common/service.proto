@@ -82,10 +82,17 @@ message DNGetNamenodesResponse {
   repeated string nodes = 2;
 };
 
+message DNGetDatanodesResponse {
+  Response common = 1;
+  repeated string nodes = 2;
+};
+
 service DatanodeService {
   rpc put(DNPutRequest) returns (CommonResponse);
   rpc get(DNGetRequest) returns (DNGetResponse);
   rpc get_namenodes(Request) returns (DNGetNamenodesResponse);
+//  rpc get_datanodes(Request) returns (DNGetDatanodesResponse);
+
 };
 
 service CommonService {

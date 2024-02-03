@@ -23,16 +23,13 @@ namespace spkdfs {
     brpc::ClosureGuard done_guard(done);
     try {
       LOG(INFO) << "rpc: ls";
-      fs::path filepath(request->path().empty() ? "/" : request->path());
       Inode inode;
+      inode.fullpath = request->path().empty() ? "/" : request->path();
 
-      inode.filename = filepath.filename().string();
-      inode.parent_path = filepath.parent_path().string();
-
-      auto inodes = db.ls(inode);
+      nn_raft_ptr->ls(inode);
       response->mutable_common()->set_success(true);
-      for (const auto& inode : inodes) {
-        response->add_data(inode.filename);
+      for (const auto& name : inode.sub) {
+        response->add_data(name);
       }
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
@@ -47,7 +44,7 @@ namespace spkdfs {
     brpc::ClosureGuard done_guard(done);
     try {
       LOG(INFO) << "rpc: mkdir";
-      Node leader = getLeaderCallback();
+      Node leader = nn_raft_ptr->leader();
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }
@@ -60,23 +57,17 @@ namespace spkdfs {
         throw runtime_error("parameter path required");
       }
 
-      fs::path filepath(request->path());
-
       Inode inode;
+      inode.fullpath = request->path();
 
-      inode.filename = filepath.filename().string();
-      inode.parent_path = filepath.parent_path().string();
-
-      db.prepare_mkdir(inode);
+      nn_raft_ptr->prepare_mkdir(inode);
       // task.data
-      json j;
-      to_json(j, inode);
       butil::IOBuf buf;
-      buf.append(j.dump());
+      buf.append(inode.value());
       Task task;
       task.data = &buf;
       task.done = NULL;
-      applyCallback(task);
+      nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
@@ -107,7 +98,7 @@ namespace spkdfs {
     try {
       LOG(INFO) << "rpc: put";
 
-      Node leader = getLeaderCallback();
+      Node leader = nn_raft_ptr->leader();
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }
@@ -143,7 +134,7 @@ namespace spkdfs {
     try {
       LOG(INFO) << "rpc: get_master";
 
-      Node leader = getLeaderCallback();
+      Node leader = nn_raft_ptr->leader();
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }

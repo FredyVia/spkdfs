@@ -130,22 +130,25 @@ void put(string src, string dst) {
 }
 
 int main(int argc, char *argv[]) {
-  gflags::ParseCommandLineFlags(&argc, &argv, false);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  // if (argc < 2) {
+  //   cout << "help" << endl;
+  //   return -1;
+  // }
   // 初始化 channel
-  if (argc < 3) {
-    cout << "help" << endl;
-    return -1;
-  }
   Init();
-  if (FLAGS_command == "-put") {
-    put(argv[2], argv[3]);
-    // 处理 -put 命令
-  } else if (FLAGS_command == "-get") {
-    // 处理 -get 命令
-  } else if (FLAGS_command == "-ls") {
-    ls(argv[2]);
-  } else if (FLAGS_command == "-mkdir") {
-    mkdir(argv[2]);
+  for (int i = 1; i < argc; ++i) {
+    std::cout << "Remaining arg: " << argv[i] << std::endl;
+  }
+  if (FLAGS_command == "put") {
+    put(argv[1], argv[2]);
+    // 处理 put 命令
+  } else if (FLAGS_command == "get") {
+    // 处理 get 命令
+  } else if (FLAGS_command == "ls") {
+    ls(argv[1]);
+  } else if (FLAGS_command == "mkdir") {
+    mkdir(argv[1]);
   } else {
     cerr << "unknown command" << endl;
   }

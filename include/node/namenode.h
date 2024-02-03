@@ -1,30 +1,18 @@
 #ifndef NAMENODE_H
 #define NAMENODE_H
-#include <braft/raft.h>
-
 #include <functional>
 #include <memory>
 #include <string>
 
 #include "common/node.h"
-#include "node/sqlitedb.h"
+#include "node/raft_nn.h"
+#include "node/rocksdb.h"
 #include "service.pb.h"
 
 namespace spkdfs {
-  // using IsLeaderCallbackType = std::function<bool()>;
-  using NNGetLeaderCallbackType = std::function<Node()>;
-  using NNApplyCallbackType = std::function<void(const braft::Task&)>;
-
   class NamenodeServiceImpl : public NamenodeService {
   public:
-    NamenodeServiceImpl(SqliteDB& db,
-                        // IsLeaderCallbackType isLeaderCallback,
-                        NNGetLeaderCallbackType getLeaderCallback,
-                        NNApplyCallbackType applyCallback)
-        :  // isLeaderCallback(isLeaderCallback),
-          getLeaderCallback(getLeaderCallback),
-          applyCallback(applyCallback),
-          db(db) {}
+    NamenodeServiceImpl(RaftNN* nn_raft_ptr) : nn_raft_ptr(nn_raft_ptr) {}
     void ls(::google::protobuf::RpcController* controller, const NNLsRequest* request,
             NNLsResponse* response, ::google::protobuf::Closure* done) override;
     void mkdir(::google::protobuf::RpcController* controller, const NNMkdirRequest* request,
@@ -40,9 +28,7 @@ namespace spkdfs {
 
   private:
     // IsLeaderCallbackType isLeaderCallback;
-    SqliteDB& db;
-    NNGetLeaderCallbackType getLeaderCallback;
-    NNApplyCallbackType applyCallback;
+    RaftNN* nn_raft_ptr;
   };
 }  // namespace spkdfs
 #endif

@@ -8,9 +8,9 @@
 #include <vector>
 
 #include "common/node.h"
-#include "node/sqlitedb.h"
-#include "service.pb.h"
 #include "node/raft_dn.h"
+#include "node/rocksdb.h"
+#include "service.pb.h"
 
 namespace spkdfs {
   class DatanodeServiceImpl : public DatanodeService {

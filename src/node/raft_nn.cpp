@@ -1,6 +1,7 @@
 #include "node/raft_nn.h"
 
 #include <arpa/inet.h>
+#include <brpc/closure_guard.h>
 #include <butil/logging.h>
 
 #include <nlohmann/json.hpp>
@@ -11,7 +12,7 @@ namespace spkdfs {
   using namespace std;
   using namespace spkdfs;
   using json = nlohmann::json;
-  RaftNN::RaftNN(const vector<Node>& nodes, SqliteDB& db) : db(db) {
+  RaftNN::RaftNN(const vector<Node>& nodes) : db(FLAGS_data_dir + "/db") {
     butil::EndPoint addr(butil::my_ip(), FLAGS_nn_port);
     node_options.fsm = this;
     node_options.node_owns_fsm = false;
@@ -53,7 +54,6 @@ namespace spkdfs {
     conf.parse_from(s);
     raft_node->change_peers(conf, NULL);
   }
-
   // bool RaftNN::is_leader() const { return raft_node->is_leader(); }
 
   void RaftNN::shutdown() { raft_node->shutdown(NULL); }
@@ -73,8 +73,14 @@ namespace spkdfs {
   }
 
   // void on_shutdown() {}
-  // void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {}
-  // int on_snapshot_load(braft::SnapshotReader* reader) {}
+  void RaftNN::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {
+    braft::AsyncClosureGuard done_guard(done);
+    db.snapshot();
+  }
+  int RaftNN::on_snapshot_load(braft::SnapshotReader* reader) {
+    LOG(INFO) << "nn on_snapshot_load";
+    db.load_snapshot();
+  }
   // void on_leader_start(int64_t term) {}
   // void on_leader_stop(const butil::Status& status) {}
   // void on_error(const ::braft::Error& e) {}

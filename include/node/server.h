@@ -12,7 +12,7 @@
 #include "node/namenode.h"
 #include "node/raft_dn.h"
 #include "node/raft_nn.h"
-#include "node/sqlitedb.h"
+#include "node/rocksdb.h"
 
 namespace spkdfs {
 
@@ -23,7 +23,6 @@ namespace spkdfs {
     void start();
 
   private:
-    SqliteDB db;
     brpc::Server nn_server;
     brpc::Server dn_server;
     // brpc::Server dn_rpc_server;

@@ -8,23 +8,22 @@
 
 #include <string>
 
-#include "common/inode.h"
 #include "common/node.h"
-#include "node/sqlitedb.h"
+#include "node/rocksdb.h"
 
 namespace spkdfs {
   // using LeaderChangeCallbackType = std::function<void(const std::vector<Node>&)>;
 
   class RaftNN : public braft::StateMachine {
   private:
-    SqliteDB& db;
+    RocksDB db;
     braft::NodeOptions node_options;
     braft::Node* volatile raft_node;
 
     // friend class boost::serialization::access;
   public:
     void change_peers(const std::vector<Node>& namenodes);
-    RaftNN(const std::vector<Node>& nodes, SqliteDB& db);
+    RaftNN(const std::vector<Node>& nodes);
     ~RaftNN();
     void start();
     // bool is_leader() const;
@@ -32,10 +31,13 @@ namespace spkdfs {
     void shutdown();
     void apply(const braft::Task& task);
 
+    inline void ls(Inode& inode) { db.ls(inode); };
+    inline void prepare_mkdir(Inode& inode) { db.prepare_mkdir(inode); }
+
     void on_apply(braft::Iterator& iter) override;
     // void on_shutdown() override;
-    // void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;
-    // int on_snapshot_load(braft::SnapshotReader* reader) override;
+    void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;
+    int on_snapshot_load(braft::SnapshotReader* reader) override;
     // void on_leader_start(int64_t term) override;
     // void on_leader_stop(const butil::Status& status) override;
     // void on_error(const ::braft::Error& e) override;

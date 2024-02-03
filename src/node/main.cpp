@@ -9,27 +9,14 @@
 
 #include "backward.hpp"
 #include "common/node.h"
+#include "common/utils.h"
 #include "gflags/gflags.h"
 #include "node/config.h"
 #include "node/server.h"
 
 using namespace std;
 using namespace spkdfs;
-bool createDirectoryIfNotExist(const std::string& dir) {
-  struct stat info;
-  if (stat(dir.c_str(), &info) != 0) {
-    // 目录不存在，尝试创建
-    if (mkdir(dir.c_str(), 0755) == -1) {
-      LOG(ERROR) << "Error: Unable to create directory " << dir;
-      return false;
-    }
-  } else if (!(info.st_mode & S_IFDIR)) {
-    // 路径存在，但不是一个目录
-    LOG(ERROR) << "Error: " << dir << " exists and is not a directory.";
-    return false;
-  }
-  return true;
-}
+
 static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, void* context,
                          bool succeeded) {
   printf("Dump path: %s\n", descriptor.path());

@@ -14,13 +14,10 @@ namespace spkdfs {
   using namespace braft;
 
   Server::Server(const std::vector<Node>& nodes) {
-    DatanodeServiceImpl* dn_service_ptr;
-    CommonServiceImpl* dn_common_service_ptr;
-    dn_common_service_ptr = new CommonServiceImpl();
-
-    dn_service_ptr = new DatanodeServiceImpl(dn_raft_ptr);
     dn_raft_ptr
         = new RaftDN(nodes, std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
+    CommonServiceImpl* dn_common_service_ptr = new CommonServiceImpl();
+    DatanodeServiceImpl* dn_service_ptr = new DatanodeServiceImpl(dn_raft_ptr);
     if (dn_server.AddService(dn_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
       throw runtime_error("server failed to add dn service");
     }
@@ -43,17 +40,9 @@ namespace spkdfs {
         return;
       }
       LOG(INFO) << "start new namenode";
+      nn_raft_ptr = new RaftNN(namenodes);
       CommonServiceImpl* nn_common_service_ptr = new CommonServiceImpl();
-      NamenodeServiceImpl* nn_service_ptr = new NamenodeServiceImpl(
-          db,
-          [this]() { return nn_raft_ptr == nullptr ? Node::INVALID_NODE : nn_raft_ptr->leader(); },
-          [this](const Task& task) {
-            if (nn_raft_ptr == nullptr) {
-              throw runtime_error("nn raft not running");
-            }
-            nn_raft_ptr->apply(task);
-          });
-      nn_raft_ptr = new RaftNN(namenodes, db);
+      NamenodeServiceImpl* nn_service_ptr = new NamenodeServiceImpl(nn_raft_ptr);
 
       if (nn_server.AddService(nn_common_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
         throw runtime_error("server failed to add common nn service");

@@ -31,11 +31,11 @@ find_package(unofficial-brpc CONFIG REQUIRED)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 
-find_package(SqliteOrm REQUIRED)
-
 find_package(Protobuf REQUIRED)
 
 find_package(glog CONFIG REQUIRED)
+
+find_package(RocksDB CONFIG REQUIRED)
 # 指定 protobuf 文件
 set(PROTO_FILE src/common/service.proto)
 # 生成 protobuf 源文件和头文件
@@ -62,9 +62,9 @@ target_include_directories(node PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CUR
 target_include_directories(client PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward)
+target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb)
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static sqlite_orm::sqlite_orm nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb)
 
 enable_testing() 
 

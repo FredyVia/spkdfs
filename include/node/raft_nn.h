@@ -13,7 +13,21 @@
 
 namespace spkdfs {
   // using LeaderChangeCallbackType = std::function<void(const std::vector<Node>&)>;
+  class LambdaClosure : public braft::Closure {
+  public:
+    using FuncType = std::function<void()>;
 
+    explicit LambdaClosure(const FuncType& func) : _func(std::move(func)) {}
+
+    void Run() override {
+      if (_func) {
+        _func();  // 调用 lambda 表达式
+      }
+    }
+
+  private:
+    FuncType _func;  // 存储 lambda 表达式
+  };
   class RaftNN : public braft::StateMachine {
   private:
     RocksDB db;
@@ -33,6 +47,14 @@ namespace spkdfs {
 
     inline void ls(Inode& inode) { db.ls(inode); };
     inline void prepare_mkdir(Inode& inode) { db.prepare_mkdir(inode); }
+    inline void prepare_rm(Inode& inode) { db.prepare_rm(inode); }
+    inline void prepare_put(Inode& inode) { db.prepare_put(inode); }
+    inline void prepare_put_ok(Inode& inode) { db.prepare_put_ok(inode); }
+
+    inline void internal_mkdir(const Inode& inode) { db.internal_mkdir(inode); }
+    inline void internal_rm(const Inode& inode) { db.internal_rm(inode); }
+    inline void internal_put(const Inode& inode) { db.internal_put(inode); }
+    inline void internal_put_ok(const Inode& inode) { db.internal_put_ok(inode); }
 
     void on_apply(braft::Iterator& iter) override;
     // void on_shutdown() override;

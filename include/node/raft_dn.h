@@ -40,7 +40,8 @@ namespace spkdfs {
       const void* data;
 
     public:
-      TimeoutException(const std::string& errorinfo, const void* data) : errorinfo(errorinfo), data(data) {}
+      TimeoutException(const std::string& errorinfo, const void* data)
+          : errorinfo(errorinfo), data(data) {}
       inline virtual const char* what(void) const noexcept override { return errorinfo.c_str(); }
       inline const void* get_data() const { return data; }
     };
@@ -50,7 +51,7 @@ namespace spkdfs {
   private:
     braft::Node* volatile raft_node;
     std::vector<Node> namenode_list;
-    std::vector<Node> node_list;
+    std::vector<Node> datanode_list;
 
     braft::NodeOptions node_options;
     // void leaderStartCallbackType(const Node& master);
@@ -67,6 +68,7 @@ namespace spkdfs {
     void on_nodes_loss(const std::vector<Node>& node);
 
     std::vector<Node> get_namenodes();
+    std::vector<Node> get_datanodes();
 
     void inline set_namenodes(const std::vector<Node>& nodes) { namenode_list = nodes; }
 

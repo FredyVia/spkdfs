@@ -1,5 +1,7 @@
 1. get_nnlist
-2. sqlite
+2. erasure code read holl file into memory, aweful implemention
+先切片到64M
+64M进行纠删码得到7+5的纠删码分块
 3. braft get node status is more gracefull
 
 Callbacks

@@ -16,7 +16,7 @@ namespace spkdfs {
   class DatanodeServiceImpl : public DatanodeService {
   public:
     DatanodeServiceImpl(RaftDN* dn_raft_ptr) : dn_raft_ptr(dn_raft_ptr){};
-    void set_namenode_master(Node node);
+    // void set_namenode_master(Node node);
     void put(::google::protobuf::RpcController* controller, const DNPutRequest* request,
              CommonResponse* response, ::google::protobuf::Closure* done) override;
     void get(::google::protobuf::RpcController* controller, const DNGetRequest* request,
@@ -24,14 +24,14 @@ namespace spkdfs {
     void get_namenodes(::google::protobuf::RpcController* controller, const Request* request,
                        DNGetNamenodesResponse* response,
                        ::google::protobuf::Closure* done) override;
-    // void get_datanodes(::google::protobuf::RpcController* controller, const Request* request,
-    //                    DNGetDatanodesResponse* response,
-    //                    ::google::protobuf::Closure* done) override;
+    void get_datanodes(::google::protobuf::RpcController* controller, const Request* request,
+                       DNGetDatanodesResponse* response,
+                       ::google::protobuf::Closure* done) override;
 
   private:
-    void check_status();
+    // void check_status();
     RaftDN* dn_raft_ptr;
-    Node namenode_master;
+    // Node namenode_master;
     brpc::Channel channel;
     std::unique_ptr<NamenodeService_Stub> stub_ptr;
   };

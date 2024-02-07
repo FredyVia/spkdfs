@@ -13,18 +13,23 @@ namespace spkdfs {
   class NamenodeServiceImpl : public NamenodeService {
   public:
     NamenodeServiceImpl(RaftNN* nn_raft_ptr) : nn_raft_ptr(nn_raft_ptr) {}
-    void ls(::google::protobuf::RpcController* controller, const NNLsRequest* request,
+    void ls(::google::protobuf::RpcController* controller, const NNPathRequest* request,
             NNLsResponse* response, ::google::protobuf::Closure* done) override;
-    void mkdir(::google::protobuf::RpcController* controller, const NNMkdirRequest* request,
+    void mkdir(::google::protobuf::RpcController* controller, const NNPathRequest* request,
                CommonResponse* response, ::google::protobuf::Closure* done) override;
+    void rm(::google::protobuf::RpcController* controller, const NNPathRequest* request,
+            CommonResponse* response, ::google::protobuf::Closure* done) override;
     void put(::google::protobuf::RpcController* controller, const NNPutRequest* request,
              NNPutResponse* response, ::google::protobuf::Closure* done) override;
-    void get(::google::protobuf::RpcController* controller, const NNGetRequest* request,
+    void get(::google::protobuf::RpcController* controller, const NNPathRequest* request,
              NNGetResponse* response, ::google::protobuf::Closure* done) override;
     void put_ok(::google::protobuf::RpcController* controller, const NNPutOKRequest* request,
                 CommonResponse* response, ::google::protobuf::Closure* done) override;
     void get_master(::google::protobuf::RpcController* controller, const Request* request,
                     NNGetMasterResponse* response, ::google::protobuf::Closure* done) override;
+    // void get_datanodes(::google::protobuf::RpcController* controller, const Request* request,
+    //                 NNGetDatanodesResponse* response, ::google::protobuf::Closure* done)
+    //                 override;
 
   private:
     // IsLeaderCallbackType isLeaderCallback;

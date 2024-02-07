@@ -15,7 +15,7 @@ message CommonResponse {
   Response common = 1;
 };
 
-message NNLsRequest {
+message NNPathRequest {
   string path = 1;
 }
 message NNLsResponse {
@@ -23,13 +23,6 @@ message NNLsResponse {
   repeated string data = 2;
 };
 
-message NNMkdirRequest {
-  string path = 1;
-}
-
-message NNGetRequest {
-  string path = 1;
-}
 message NNGetResponse {
   Response common = 1;
   repeated uint32 blkids = 2;
@@ -37,9 +30,10 @@ message NNGetResponse {
 
 message NNPutRequest {
   string path = 1;
-  repeated uint32 blkids = 2;
-  uint64 size = 3;
+  uint64 filesize = 2;
+  string storage_type = 3;
 }
+
 message NNPutResponse {
   Response common = 1;
   repeated string nodes = 2;
@@ -47,21 +41,30 @@ message NNPutResponse {
 
 
 message NNPutOKRequest {
-  string blkid = 1;
+  string path = 1;
+  repeated string sub = 2;
 };
 
 message NNGetMasterResponse {
   Response common = 1;
   string node = 2;
 }
+
+message NNGetDatanodesResponse {
+  Response common = 1;
+  repeated string nodes = 2;
+};
+
 service NamenodeService {
-  rpc ls(NNLsRequest) returns (NNLsResponse);
-  rpc mkdir(NNMkdirRequest) returns (CommonResponse);
-  rpc get(NNGetRequest) returns (NNGetResponse);
+  rpc ls(NNPathRequest) returns (NNLsResponse);
+  rpc mkdir(NNPathRequest) returns (CommonResponse);
+  rpc rm(NNPathRequest) returns (CommonResponse);
+  rpc get(NNPathRequest) returns (NNGetResponse);
   rpc put(NNPutRequest) returns (NNPutResponse);
   // datanode notice namenode blk storeed ok;
   rpc put_ok(NNPutOKRequest) returns (CommonResponse);
   rpc get_master(Request) returns (NNGetMasterResponse);
+  // rpc get_datanodes(Request) returns (NNGetDatanodesResponse);
 };
 
 message DNGetRequest {
@@ -91,8 +94,7 @@ service DatanodeService {
   rpc put(DNPutRequest) returns (CommonResponse);
   rpc get(DNGetRequest) returns (DNGetResponse);
   rpc get_namenodes(Request) returns (DNGetNamenodesResponse);
-//  rpc get_datanodes(Request) returns (DNGetDatanodesResponse);
-
+  rpc get_datanodes(Request) returns (DNGetDatanodesResponse);
 };
 
 service CommonService {

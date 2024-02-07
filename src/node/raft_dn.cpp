@@ -20,8 +20,8 @@ namespace spkdfs {
 
   RaftDN::RaftDN(const std::vector<Node>& _nodes, DNApplyCallbackType applyCallback)
       : applyCallback(applyCallback) {
-    node_list = _nodes;
-    for (auto& node : node_list) {
+    datanode_list = _nodes;
+    for (auto& node : datanode_list) {
       node.port = FLAGS_dn_port;
     }
 
@@ -33,8 +33,8 @@ namespace spkdfs {
     node_options.snapshot_uri = prefix + "/snapshot";
     node_options.disable_cli = true;
     vector<braft::PeerId> peer_ids;
-    peer_ids.reserve(node_list.size());  // 优化：预先分配所需空间
-    std::transform(node_list.begin(), node_list.end(), std::back_inserter(peer_ids),
+    peer_ids.reserve(datanode_list.size());  // 优化：预先分配所需空间
+    std::transform(datanode_list.begin(), datanode_list.end(), std::back_inserter(peer_ids),
                    [](const Node& node) { return node.to_peerid(); });
     node_options.initial_conf = braft::Configuration(peer_ids);
 
@@ -102,6 +102,7 @@ namespace spkdfs {
   }
 
   vector<Node> RaftDN::get_namenodes() { return namenode_list; }
+  vector<Node> RaftDN::get_datanodes() { return datanode_list; }
   void RaftDN::on_leader_start(int64_t term) {
     backward::SignalHandling sh;
     LOG(INFO) << "Node becomes leader";
@@ -116,7 +117,7 @@ namespace spkdfs {
         nodes.end());
     LOG(INFO) << "online nodes";
     pretty_print(LOG(INFO), nodes);
-    vector<Node> allnodes = node_list;
+    vector<Node> allnodes = datanode_list;
 
     LOG(INFO) << "allnodes: ";
     pretty_print(LOG(INFO), allnodes);

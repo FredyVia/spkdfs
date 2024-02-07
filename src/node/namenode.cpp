@@ -10,6 +10,7 @@
 #include "common/inode.h"
 #include "exception"
 #include "node/raft_nn.h"
+#include "service.pb.h"
 namespace spkdfs {
 
   using namespace std;
@@ -18,7 +19,7 @@ namespace spkdfs {
 
   namespace fs = std::filesystem;
   void NamenodeServiceImpl::ls(::google::protobuf::RpcController* controller,
-                               const NNLsRequest* request, NNLsResponse* response,
+                               const NNPathRequest* request, NNLsResponse* response,
                                ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     try {
@@ -37,9 +38,8 @@ namespace spkdfs {
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
-
   void NamenodeServiceImpl::mkdir(::google::protobuf::RpcController* controller,
-                                  const NNMkdirRequest* request, CommonResponse* response,
+                                  const NNPathRequest* request, CommonResponse* response,
                                   ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     try {
@@ -62,11 +62,52 @@ namespace spkdfs {
 
       nn_raft_ptr->prepare_mkdir(inode);
       // task.data
-      butil::IOBuf buf;
-      buf.append(inode.value());
+
+      // buf.append(inode.value());
+      LOG(INFO) << "going to propose inode: " << inode.value();
       Task task;
-      task.data = &buf;
-      task.done = NULL;
+      butil::IOBuf buf;
+      task.data = &buf;  // task.data cannot be NULL
+      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_mkdir(inode); });
+      nn_raft_ptr->apply(task);
+      response->mutable_common()->set_success(true);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << e.what();
+      response->mutable_common()->set_success(false);
+      *(response->mutable_common()->mutable_fail_info()) = e.what();
+    }
+  }
+  void NamenodeServiceImpl::rm(::google::protobuf::RpcController* controller,
+                               const NNPathRequest* request, CommonResponse* response,
+                               ::google::protobuf::Closure* done) {
+    brpc::ClosureGuard done_guard(done);
+    try {
+      LOG(INFO) << "rpc: rm";
+      Node leader = nn_raft_ptr->leader();
+      if (!leader.valid()) {
+        throw runtime_error("leader not ready");
+      }
+      if (leader.ip != butil::my_ip_cstr()) {
+        response->mutable_common()->set_success(false);
+        *(response->mutable_common()->mutable_redirect()) = to_string(leader);
+        return;
+      }
+      if (request->path().empty()) {
+        throw runtime_error("parameter path required");
+      }
+
+      Inode inode;
+      inode.fullpath = request->path();
+
+      nn_raft_ptr->prepare_rm(inode);
+      // task.data
+
+      // buf.append(inode.value());
+      LOG(INFO) << "going to propose inode: " << inode.value();
+      Task task;
+      butil::IOBuf buf;
+      task.data = &buf;  // task.data cannot be NULL
+      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_rm(inode); });
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
@@ -75,8 +116,9 @@ namespace spkdfs {
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
+
   void NamenodeServiceImpl::get(::google::protobuf::RpcController* controller,
-                                const NNGetRequest* request, NNGetResponse* response,
+                                const NNPathRequest* request, NNGetResponse* response,
                                 ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     try {
@@ -107,14 +149,23 @@ namespace spkdfs {
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
         return;
       }
-      response->mutable_common()->set_success(false);
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
-      // for (const auto& node : nodes) {
-      //   std::string nodeStr = to_string(node);
-      //   response->add_nodes(to_string(node));
-      // }
+      if (request->filesize() <= 0) {
+        throw runtime_error("filesize <= 0");
+      }
+      Inode inode;
+      inode.fullpath = request->path();
+      inode.filesize = request->filesize();
+      inode.storage_type = *(from_string(request->storage_type()));
+      nn_raft_ptr->prepare_put(inode);
+      Task task;
+      butil::IOBuf buf;
+      task.data = &buf;
+      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_put(inode); });
+      nn_raft_ptr->apply(task);
+      response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
@@ -125,7 +176,25 @@ namespace spkdfs {
                                    const NNPutOKRequest* request, CommonResponse* response,
                                    ::google::protobuf::Closure* done) {
     brpc::ClosureGuard done_guard(done);
+
     LOG(INFO) << "rpc: put_ok";
+    try {
+      if (request->path().empty()) {
+        throw runtime_error("parameter path required");
+      }
+      Inode inode;
+      inode.fullpath = request->path();
+      nn_raft_ptr->prepare_put_ok(inode);
+      Task task;
+      butil::IOBuf buf;
+      task.data = &buf;
+      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_put_ok(inode); });
+
+    } catch (const std::exception& e) {
+      LOG(ERROR) << e.what();
+      response->mutable_common()->set_success(false);
+      *(response->mutable_common()->mutable_fail_info()) = e.what();
+    }
   }
   void NamenodeServiceImpl::get_master(::google::protobuf::RpcController* controller,
                                        const Request* request, NNGetMasterResponse* response,
@@ -146,4 +215,17 @@ namespace spkdfs {
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   }
+  // void NamenodeServiceImpl::get_datanodes(::google::protobuf::RpcController* controller,
+  //                                         const Request* request, NNGetDatanodesResponse*
+  //                                         response,
+  //                                         ::google::protobuf::Closure* done) {
+  //   brpc::ClosureGuard done_guard(done);
+  //   try {
+  //     response->
+  //   } catch (const std::exception& e) {
+  //     LOG(ERROR) << e.what();
+  //     response->mutable_common()->set_success(false);
+  //     *(response->mutable_common()->mutable_fail_info()) = e.what();
+  //   }
+  // }
 }  // namespace spkdfs

@@ -6,8 +6,8 @@
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <set>
 #include <string>
-#include <vector>
 
 namespace spkdfs {
   namespace fs = std::filesystem;
@@ -41,9 +41,13 @@ namespace spkdfs {
     bool is_directory;
     unsigned long long filesize;
     StorageType storage_type;
-    std::vector<std::string> sub;  // sub directory for directory or blks for file
+    std::set<std::string> sub;  // sub directory for directory or blks for file
     bool valid;
     bool building;
+    inline std::string filename() const {
+      fs::path filepath(fullpath);
+      return filepath.filename().string();
+    }
     inline std::string parent_path() const {
       fs::path filepath(fullpath);
       return filepath.parent_path().string();
@@ -70,7 +74,7 @@ namespace spkdfs {
     inode.is_directory = j.at("is_directory").get<bool>();
     inode.filesize = j.at("filesize").get<int>();
     j.at("storage_type").get_to(inode.storage_type);
-    inode.sub = j.at("sub").get<std::vector<std::string>>();
+    inode.sub = j.at("sub").get<std::set<std::string>>();
     inode.valid = j.at("valid").get<bool>();
     inode.building = j.at("building").get<bool>();
   }

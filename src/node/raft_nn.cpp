@@ -62,13 +62,8 @@ namespace spkdfs {
 
   void RaftNN::on_apply(braft::Iterator& iter) {
     // 实现细节
-    Inode inode;
     for (; iter.valid(); iter.next()) {
       braft::AsyncClosureGuard closure_guard(iter.done());
-      LOG(INFO) << "internal mkdir" << iter.data().to_string();
-      auto j = json::parse(iter.data().to_string());
-      inode = j.get<Inode>();
-      db.internal_mkdir(inode);
     }
   }
 

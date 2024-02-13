@@ -21,17 +21,19 @@ DEFINE_string(datanode, "127.0.0.1:18001", "required");
 DEFINE_string(namenode, "", "optional");
 DEFINE_string(namenode_master, "", "optional, namenode_master addr: <addr>:<port>");
 DEFINE_uint32(block_size, 64 * 1024, "optional, BLOCK size Bytes");
+DEFINE_string(storage_type, "rs(3,2)", "rs or replication, example: rs(3,2) re");
 template <typename ResponseType>
 void check_response(const Controller &cntl, const ResponseType &response) {
   if (cntl.Failed()) {
-    throw std::runtime_error("brpc not success: " + cntl.ErrorText());
+    throw runtime_error("brpc not success: " + cntl.ErrorText());
   }
   if (!response.common().success()) {
-    throw std::runtime_error(response.common().fail_info());
+    throw runtime_error(response.common().fail_info());
   }
 }
 NamenodeService_Stub *nn_master_stub;
 Channel nn_master_channel;
+
 void Init() {
   if (FLAGS_namenode_master == "" && FLAGS_namenode == "") {
     Channel dn_channel;
@@ -103,6 +105,7 @@ void ls(const string &s) {
     cout << str << endl;
   }
 }
+
 void mkdir(const string &dst) {
   Controller cntl;
   NNPathRequest request;
@@ -164,21 +167,21 @@ void put(const string &srcFilePath, const string &dstFilePath) {
   block.reserve(FLAGS_block_size);
 
   cout << "opening file " << srcFilePath << endl;
-  ifstream file(srcFilePath, std::ios::binary | std::ios::ate);
+  ifstream file(srcFilePath, ios::binary | ios::ate);
   if (!file.is_open()) {
-    std::cerr << "Failed to open file\n";
+    cerr << "Failed to open file\n";
     return;
   }
 
   auto fileSize = file.tellg();
   cout << "fileSize: " << fileSize << endl;
-  file.seekg(0, std::ios::beg);
+  file.seekg(0, ios::beg);
   brpc::Controller cntl;
   NNPutRequest request;
   NNPutResponse nnput_resp;
   *(request.mutable_path()) = dstFilePath;
   request.set_filesize(fileSize);
-  *(request.mutable_storage_type()) = to_string(StorageType::STORAGETYPE_RS);
+  *(request.mutable_storage_type()) = FLAGS_storage_type;
   nn_master_stub->put(&cntl, &request, &nnput_resp, NULL);
   if (cntl.Failed()) {
     throw runtime_error("brpc not success");
@@ -189,6 +192,9 @@ void put(const string &srcFilePath, const string &dstFilePath) {
   }
   block.resize(FLAGS_block_size);
   int blockIndex = 0;
+
+  NNPutOKRequest nnputok_req;
+  *(nnputok_req.mutable_path()) = dstFilePath;
   while (file.read(&block[0], FLAGS_block_size) || file.gcount() > 0) {
     int succ = 0;
     size_t bytesRead = file.gcount();
@@ -200,20 +206,20 @@ void put(const string &srcFilePath, const string &dstFilePath) {
     // 使用Melon库进行纠删码编码
     mln_rs_result_t *res = mln_rs_encode((uint8_t *)block.data(), block.size() / k, k, m);
     if (res == nullptr) {
-      std::cerr << "rs encode failed.\n";
+      cerr << "rs encode failed.\n";
       break;
     }
 
     // 上传每个编码后的分块
     for (int j = 0; j < k + m; j++) {
       uint8_t *encodedData = mln_rs_result_get_data_by_index(res, j);
+      char sha256sum[1024] = {0};
+      mln_sha256_calc(&s, encodedData, block.size() / k, 1);
+      mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
+      cout << "sha256sum:" << sha256sum << endl;
+      nnputok_req.add_sub(to_string(nodes[j]) + "|" + sha256sum);
       if (encodedData != nullptr) {
         // 假设每个分块的大小是block.size() / k
-
-        char sha256sum[1024] = {0};
-        mln_sha256_calc(&s, encodedData, block.size() / k, 1);
-        mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
-        cout << "sha256sum:" << sha256sum << endl;
         Channel dn_channel;
         cout << "node[" << j << "]"
              << ":" << nodes[j] << endl;
@@ -239,9 +245,7 @@ void put(const string &srcFilePath, const string &dstFilePath) {
 
     blockIndex++;
   }
-  NNPutOKRequest nnputok_req;
   CommonResponse response;
-  *(nnputok_req.mutable_path()) = dstFilePath;
   cntl.Reset();
   nn_master_stub->put_ok(&cntl, &nnputok_req, &response, NULL);
   if (cntl.Failed()) {
@@ -253,6 +257,11 @@ void put(const string &srcFilePath, const string &dstFilePath) {
   cout << "put ok" << endl;
 }
 
+void get(const string &src, const string &dst) {
+  auto nodes = get_datanodes();
+  // nn_master_stub->;
+}
+
 int main(int argc, char *argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   // if (argc < 2) {
@@ -262,12 +271,13 @@ int main(int argc, char *argv[]) {
   // 初始化 channel
   Init();
   for (int i = 1; i < argc; ++i) {
-    std::cout << "Remaining arg: " << argv[i] << std::endl;
+    cout << "Remaining arg: " << argv[i] << endl;
   }
   if (FLAGS_command == "put") {
     put(argv[1], argv[2]);
     // 处理 put 命令
   } else if (FLAGS_command == "get") {
+    get(argv[1], argv[2]);
     // 处理 get 命令
   } else if (FLAGS_command == "ls") {
     ls(argv[1]);

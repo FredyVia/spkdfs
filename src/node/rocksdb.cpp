@@ -3,6 +3,7 @@
 #include <glog/logging.h>
 #include <rocksdb/write_batch.h>
 
+#include <cstddef>
 #include <nlohmann/json.hpp>
 #include <string>
 
@@ -69,8 +70,8 @@ namespace spkdfs {
 
   bool RocksDB::path_exists(const std::string& path) const {
     if (path == "/") return true;
-    string value;
     Status s;
+    string value;
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     s = get(path, value);
     if (s.IsNotFound()) {
@@ -119,23 +120,27 @@ namespace spkdfs {
   // std::vector<Inode>
   void RocksDB::ls(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
+    Status s;
     string value;
     LOG(INFO) << "ls: inode.fullpath: " << inode.fullpath;
-    Status s = get(inode.fullpath, value);
-    if (s.IsNotFound()) {
+    s = get(inode.fullpath, value);
+    LOG(INFO) << "ls: inode.value(): " << value;
+    if (s.IsNotFound() && inode.fullpath != "/") {
       throw runtime_error("path not exist");
     }
-    auto _json = json::parse(value);
-    Inode tmpInode = _json.get<Inode>();
-    if (tmpInode.valid == false) {
-      throw runtime_error("not valid");
+    if (s.ok()) {
+      auto _json = json::parse(value);
+      Inode tmpInode = _json.get<Inode>();
+      if (tmpInode.valid == false) {
+        throw runtime_error("not valid");
+      }
+      inode = tmpInode;
     }
     // vector<Inode> res;
     // for (const auto& name : tmpInode.sub) {
 
     //   res.push_back()
     // }
-    inode = tmpInode;
   }
 
   void RocksDB::prepare_mkdir(Inode& inode) {
@@ -143,7 +148,7 @@ namespace spkdfs {
     try_to_add(inode);
     inode.is_directory = true;
     inode.filesize = 0;
-    inode.storage_type = StorageType::STORAGETYPE_REPLICA;
+    inode.storage_type_ptr = nullptr;
     inode.sub = {};
     inode.valid = true;
     inode.building = false;
@@ -160,15 +165,7 @@ namespace spkdfs {
   void RocksDB::prepare_put_ok(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     LOG(INFO) << "internal put" << inode.value();
-    string value;
-    Status s;
-    s = get(inode.fullpath, value);
-    if (!s.ok()) {
-      throw runtime_error("internal get not ok");
-    }
-    auto _json = json::parse(value);
-    inode = _json.get<Inode>();
-    inode.building = false;
+    try_to_rm(inode);
   }
 
   void RocksDB::prepare_rm(Inode& inode) {
@@ -195,13 +192,10 @@ namespace spkdfs {
     }
   }
 
-  void RocksDB::internal_put_ok(const Inode& inode) {
+  Inode RocksDB::get_parent_inode(const Inode& inode) {
     Status s;
     string value;
     s = get(inode.parent_path(), value);
-    if (!s.ok()) {
-      throw runtime_error("internal get not ok");
-    }
     Inode parent_inode;
     if (s.IsNotFound()) {
       // parent_path must be "/"
@@ -209,20 +203,38 @@ namespace spkdfs {
       parent_inode.fullpath = "/";
       parent_inode.is_directory = true;
       parent_inode.filesize = 0;
-      parent_inode.storage_type = StorageType::STORAGETYPE_REPLICA;
+      parent_inode.storage_type_ptr = nullptr;
       parent_inode.sub = {};
       parent_inode.valid = true;
       parent_inode.building = false;
-    } else {
+    } else if (s.ok()) {
       auto _json = json::parse(value);
       parent_inode = _json.get<Inode>();
+    } else {
+      throw runtime_error("parent add sub, internal get not ok");
     }
+    return parent_inode;
+  }
+
+  void RocksDB::internal_put_ok(const Inode& inode) {
+    Status s;
+    string value;
+    auto parent_inode = get_parent_inode(inode);
     parent_inode.sub.insert(inode.filename());
+    s = get(inode.fullpath, value);
+    if (!s.ok()) {
+      throw runtime_error("internal get not ok");
+    }
+    auto _json = json::parse(value);
+    Inode db_inode = _json.get<Inode>();
+    db_inode.building = false;
+    db_inode.sub = inode.sub;
     LOG(INFO) << "parent_inode:" << parent_inode.value();
     LOG(INFO) << "curr_inode: " << inode.value();
+    LOG(INFO) << "db_inode: " << db_inode.value();
     rocksdb::WriteBatch batch;
     batch.Put(parent_inode.fullpath, parent_inode.value());
-    batch.Put(inode.fullpath, inode.value());
+    batch.Put(db_inode.fullpath, db_inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
     if (!s.ok()) {
       throw runtime_error("batch write not ok");
@@ -241,24 +253,9 @@ namespace spkdfs {
   void RocksDB::internal_mkdir(const Inode& inode) {
     // RocksDB::put(const std::string& key, const std::string& value) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
+    Status s;
     LOG(INFO) << "internal mkdir" << inode.value();
-    string value;
-    Status s = get(inode.parent_path(), value);
-    Inode parent_inode;
-    if (s.IsNotFound()) {
-      // parent_path must be "/"
-      assert(inode.parent_path() == "/");
-      parent_inode.fullpath = "/";
-      parent_inode.is_directory = true;
-      parent_inode.filesize = 0;
-      parent_inode.storage_type = StorageType::STORAGETYPE_REPLICA;
-      parent_inode.sub = {};
-      parent_inode.valid = true;
-      parent_inode.building = false;
-    } else {
-      auto _json = json::parse(value);
-      parent_inode = _json.get<Inode>();
-    }
+    auto parent_inode = get_parent_inode(inode);
     parent_inode.sub.insert(inode.filename());
     LOG(INFO) << "parent_inode:" << parent_inode.value();
     LOG(INFO) << "curr_inode: " << inode.value();

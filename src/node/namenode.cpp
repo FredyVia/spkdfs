@@ -158,8 +158,9 @@ namespace spkdfs {
       Inode inode;
       inode.fullpath = request->path();
       inode.filesize = request->filesize();
-      inode.storage_type = *(from_string(request->storage_type()));
+      inode.storage_type_ptr = from_string(request->storage_type());
       nn_raft_ptr->prepare_put(inode);
+      LOG(INFO) << "inode's prepare_put" << inode.value();
       Task task;
       butil::IOBuf buf;
       task.data = &buf;
@@ -184,18 +185,24 @@ namespace spkdfs {
       }
       Inode inode;
       inode.fullpath = request->path();
+      for (auto str : request->sub()) {
+        inode.sub.insert(str);
+      }
       nn_raft_ptr->prepare_put_ok(inode);
+      LOG(INFO) << "inode's prepare_put_ok" << inode.value();
       Task task;
       butil::IOBuf buf;
       task.data = &buf;
       task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_put_ok(inode); });
-
+      nn_raft_ptr->apply(task);
+      response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   }
+
   void NamenodeServiceImpl::get_master(::google::protobuf::RpcController* controller,
                                        const Request* request, NNGetMasterResponse* response,
                                        ::google::protobuf::Closure* done) {

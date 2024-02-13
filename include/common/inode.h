@@ -6,33 +6,49 @@
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
+#include <regex>
 #include <set>
 #include <string>
-
 namespace spkdfs {
   namespace fs = std::filesystem;
-  using json = nlohmann::json;
+  class StorageType {
+  public:
+    static std::shared_ptr<StorageType> from_json(const nlohmann::json& j);
+    virtual std::string to_string() const = 0;
+    virtual void to_json(nlohmann::json& j) const = 0;
+  };
+  class RSStorageType : public StorageType {
+  private:
+    unsigned int k;
+    unsigned int m;
 
-  enum class StorageType { STORAGETYPE_RS = 0, STORAGETYPE_REPLICA = 1 };
-  // #define STORAGETYPE_RS StorageType.STORAGETYPE_RS
-  // #define STORAGETYPE_REPLICA StorageType.STORAGETYPE_REPLICA
-  inline std::unique_ptr<StorageType> from_string(const std::string& s) {
-    if (s == "STORAGETYPE_RS") {
-      return std::make_unique<StorageType>(StorageType::STORAGETYPE_RS);
-    } else if (s == "STORAGETYPE_REPLICA") {
-      return std::make_unique<StorageType>(StorageType::STORAGETYPE_REPLICA);
-    }
-    return nullptr;
+  public:
+    RSStorageType(unsigned int k, unsigned int m) : k(k), m(m){};
+    std::string to_string() const override;
+    void to_json(nlohmann::json& j) const override;
+  };
+
+  class REStorageType : public StorageType {
+  private:
+    unsigned int replications;
+
+  public:
+    REStorageType(unsigned int replications) : replications(replications){};
+    std::string to_string() const override;
+    void to_json(nlohmann::json& j) const override;
+  };
+
+  std::shared_ptr<StorageType> from_string(const std::string& input);
+
+  inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
+    return storageType_ptr->to_string();
   }
-  inline std::string to_string(StorageType st) {
-    switch (st) {
-      case StorageType::STORAGETYPE_RS:
-        return "STORAGETYPE_RS";
-      case StorageType::STORAGETYPE_REPLICA:
-        return "STORAGETYPE_REPLICA";
-    }
-    throw std::domain_error("Invalid StorageType enum");
-  }
+
+  std::shared_ptr<StorageType> from_json(const nlohmann::json& j);
+
+  // inline std::string to_json(std::unique_ptr<StorageType> storageType_ptr) {
+  //   return storageType_ptr->to_json();
+  // }
   class Inode;
   inline void to_json(nlohmann::json& j, const Inode& inode);
   class Inode {
@@ -40,7 +56,7 @@ namespace spkdfs {
     std::string fullpath;
     bool is_directory;
     unsigned long long filesize;
-    StorageType storage_type;
+    std::shared_ptr<StorageType> storage_type_ptr;
     std::set<std::string> sub;  // sub directory for directory or blks for file
     bool valid;
     bool building;
@@ -54,7 +70,7 @@ namespace spkdfs {
     }
     inline std::string key() const { return fullpath; }
     inline std::string value() const {
-      json j;
+      nlohmann::json j;
       to_json(j, *this);
       return j.dump();
     }
@@ -62,9 +78,13 @@ namespace spkdfs {
 
   inline void to_json(nlohmann::json& j, const Inode& inode) {
     j = nlohmann::json{{"fullpath", inode.fullpath}, {"is_directory", inode.is_directory},
-                       {"filesize", inode.filesize}, {"storage_type", inode.storage_type},
-                       {"sub", inode.sub},           {"valid", inode.valid},
-                       {"building", inode.building}};
+                       {"filesize", inode.filesize}, {"sub", inode.sub},
+                       {"valid", inode.valid},       {"building", inode.building}};
+    if (inode.storage_type_ptr != nullptr) {
+      nlohmann::json storage_json;
+      inode.storage_type_ptr->to_json(storage_json);  // 假设 to_json 返回一个 JSON 对象
+      j["storage_type"] = storage_json.dump();  // 转换为字符串并添加到 JSON 对象中
+    }
   }
   // inline std::string to_string(const Inode& inode){
 
@@ -73,7 +93,11 @@ namespace spkdfs {
     inode.fullpath = j.at("fullpath").get<std::string>();
     inode.is_directory = j.at("is_directory").get<bool>();
     inode.filesize = j.at("filesize").get<int>();
-    j.at("storage_type").get_to(inode.storage_type);
+    if (j.find("storage_type") != j.end()) {
+      inode.storage_type_ptr = StorageType::from_json(j.at("storage_type"));
+    } else {
+      inode.storage_type_ptr = nullptr;
+    }
     inode.sub = j.at("sub").get<std::set<std::string>>();
     inode.valid = j.at("valid").get<bool>();
     inode.building = j.at("building").get<bool>();

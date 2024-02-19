@@ -25,7 +25,8 @@ message NNLsResponse {
 
 message NNGetResponse {
   Response common = 1;
-  repeated uint32 blkids = 2;
+  string storage_type = 2;
+  repeated string blkids = 3;
 };
 
 message NNPutRequest {

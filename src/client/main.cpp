@@ -6,9 +6,9 @@
 #include <string>
 #include <vector>
 
-#include "client/mln_rs.h"
-#include "client/mln_sha.h"
 #include "common/inode.h"
+#include "common/mln_rs.h"
+#include "common/mln_sha.h"
 #include "common/node.h"
 #include "service.pb.h"
 #define ROUND_UP_8(num) ((num + 7) & ~7)
@@ -54,7 +54,7 @@ void Init() {
     if (!response.common().success()) {
       throw runtime_error(response.common().fail_info());
     }
-    cout << "namenode" << response.nodes(0) << endl;
+    cout << "namenode: " << response.nodes(0) << endl;
     gflags::SetCommandLineOption("namenode", response.nodes(0).c_str());
   }
   if (FLAGS_namenode_master == "") {
@@ -77,7 +77,7 @@ void Init() {
     if (!response.common().success()) {
       throw runtime_error(response.common().fail_info());
     }
-    cout << "namenode master" << response.node() << endl;
+    cout << "namenode master: " << response.node() << endl;
     gflags::SetCommandLineOption("namenode_master", response.node().c_str());
   }
 
@@ -125,8 +125,7 @@ void mkdir(const string &dst) {
 
 void get_k_m(int &k, int &m) {
   int all = 12;
-  k = 3;
-  m = 2;
+  shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(string(FLAGS_storage_type));
 }
 
 vector<Node> get_datanodes() {
@@ -140,12 +139,7 @@ vector<Node> get_datanodes() {
   Request request;
   DNGetDatanodesResponse response;
   dn_stub.get_datanodes(&cntl, &request, &response, NULL);
-  if (cntl.Failed()) {
-    throw runtime_error("brpc not success");
-  }
-  if (!response.common().success()) {
-    throw runtime_error(response.common().fail_info());
-  }
+  check_response(cntl, response);
   vector<Node> vec;
   for (auto node_str : response.nodes()) {
     Node node;
@@ -157,14 +151,14 @@ vector<Node> get_datanodes() {
 
 void put(const string &srcFilePath, const string &dstFilePath) {
   auto nodes = get_datanodes();
-  int k = 0, m = 0;
-  get_k_m(k, m);
-  cout << "using k,m=" << k << "," << m << endl;
+
+  vector<Channel> dn_channels(nodes.size());
+  for (int i = 0; i < nodes.size(); i++) {
+    dn_channels[i].Init(to_string(nodes[i]).c_str(), NULL);
+  }
+  shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(FLAGS_storage_type);
   mln_sha256_t s;
   mln_sha256_init(&s);
-  cout << "using block size: " << FLAGS_block_size << endl;
-  string block;
-  block.reserve(FLAGS_block_size);
 
   cout << "opening file " << srcFilePath << endl;
   ifstream file(srcFilePath, ios::binary | ios::ate);
@@ -183,18 +177,18 @@ void put(const string &srcFilePath, const string &dstFilePath) {
   request.set_filesize(fileSize);
   *(request.mutable_storage_type()) = FLAGS_storage_type;
   nn_master_stub->put(&cntl, &request, &nnput_resp, NULL);
-  if (cntl.Failed()) {
-    throw runtime_error("brpc not success");
-  }
-  if (!nnput_resp.common().success()) {
-    cerr << "error" << endl;
-    throw runtime_error(nnput_resp.common().fail_info());
-  }
-  block.resize(FLAGS_block_size);
-  int blockIndex = 0;
+  check_response(cntl, nnput_resp);
 
   NNPutOKRequest nnputok_req;
   *(nnputok_req.mutable_path()) = dstFilePath;
+
+  cout << "using block size: " << FLAGS_block_size << endl;
+  string block;
+  block.resize(FLAGS_block_size);
+  int blockIndex = 0;
+  char sha256sum[1024] = {0};
+  int node_index = 0;
+  int i = 0;  // used to make std::set be ordered
   while (file.read(&block[0], FLAGS_block_size) || file.gcount() > 0) {
     int succ = 0;
     size_t bytesRead = file.gcount();
@@ -202,47 +196,36 @@ void put(const string &srcFilePath, const string &dstFilePath) {
       // size_t newSize = ROUND_UP_8(bytesRead);
       block.resize(FLAGS_block_size, 0);  // 使用0填充到新大小
     }
-
-    // 使用Melon库进行纠删码编码
-    mln_rs_result_t *res = mln_rs_encode((uint8_t *)block.data(), block.size() / k, k, m);
-    if (res == nullptr) {
-      cerr << "rs encode failed.\n";
-      break;
-    }
-
+    auto vec = storage_type_ptr->encode(block);
     // 上传每个编码后的分块
-    for (int j = 0; j < k + m; j++) {
-      uint8_t *encodedData = mln_rs_result_get_data_by_index(res, j);
-      char sha256sum[1024] = {0};
-      mln_sha256_calc(&s, encodedData, block.size() / k, 1);
+    for (auto &encodedData : vec) {
+      mln_sha256_calc(&s, (mln_u8ptr_t)encodedData.c_str(), encodedData.size(), 1);
       mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
       cout << "sha256sum:" << sha256sum << endl;
-      nnputok_req.add_sub(to_string(nodes[j]) + "|" + sha256sum);
-      if (encodedData != nullptr) {
-        // 假设每个分块的大小是block.size() / k
-        Channel dn_channel;
-        cout << "node[" << j << "]"
-             << ":" << nodes[j] << endl;
-        if (dn_channel.Init(to_string(nodes[j]).c_str(), NULL) != 0) {
-          throw runtime_error("datanode channel init failed");
-        }
-        DNPutRequest dn_req;
-        CommonResponse dn_resp;
-        DatanodeService_Stub dn_stub(&dn_channel);
+      // 假设每个分块的大小是block.size() / k
 
-        *(dn_req.mutable_blkid()) = string(sha256sum);
-        *(dn_req.mutable_data()) = string((char *)encodedData);
-        cntl.Reset();
-        dn_stub.put(&cntl, &dn_req, &dn_resp, NULL);
-        check_response(cntl, dn_resp);
-        succ++;
+      cout << "node[" << node_index << "]"
+           << ":" << nodes[node_index] << endl;
+      DNPutRequest dn_req;
+      CommonResponse dn_resp;
+      DatanodeService_Stub dn_stub(&dn_channels[node_index]);
+      *(dn_req.mutable_blkid()) = string(sha256sum);
+      *(dn_req.mutable_data()) = encodedData;
+      cntl.Reset();
+      dn_stub.put(&cntl, &dn_req, &dn_resp, NULL);
+      check_response(cntl, dn_resp);
+
+      std::ostringstream oss;
+      oss << std::setw(16) << std::setfill('0') << i++;
+      cout << oss.str() << endl;
+      nnputok_req.add_sub(oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum);
+
+      succ++;
+      node_index = (node_index + 1) % nodes.size();
+      if (node_index == 0 && storage_type_ptr->check(succ) == false) {
+        cout << "may not be secure" << endl;
       }
     }
-    mln_rs_result_free(res);
-    if (succ < k) {
-      throw runtime_error("succ < k");
-    }
-
     blockIndex++;
   }
   CommonResponse response;
@@ -258,8 +241,31 @@ void put(const string &srcFilePath, const string &dstFilePath) {
 }
 
 void get(const string &src, const string &dst) {
-  auto nodes = get_datanodes();
-  // nn_master_stub->;
+  brpc::Controller cntl;
+  NNPathRequest request;
+  NNGetResponse nnget_resp;
+  *(request.mutable_path()) = src;
+  nn_master_stub->get(&cntl, &request, &nnget_resp, NULL);
+  check_response(cntl, nnget_resp);
+  cout << "using storage type: " << nnget_resp.storage_type() << endl;
+  auto storage_type_ptr = StorageType::from_string(nnget_resp.storage_type());
+  for (auto &str : nnget_resp.blkids()) {
+    std::stringstream ss(str);
+    std::string _, node, blkid;
+    std::getline(ss, _, '|');      // 提取第一个部分
+    std::getline(ss, node, '|');   // 提取第二个部分
+    std::getline(ss, blkid, '|');  // 提取第三个部分
+    cout << _ << "|" << node << "|" << blkid << endl;
+    Channel dn_channel;
+
+    dn_channel.Init(node.c_str(), NULL);
+    DatanodeService_Stub dn_stub(&dn_channel);
+    DNGetRequest dnget_req;
+    DNGetResponse dnget_resp;
+    *(dnget_req.mutable_blkid()) = blkid;
+    cntl.Reset();
+    dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
+  };
 }
 
 int main(int argc, char *argv[]) {

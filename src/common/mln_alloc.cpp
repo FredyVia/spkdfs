@@ -3,13 +3,13 @@
  * Copyright (C) Niklaus F.Schen.
  */
 
-#include "client/mln_alloc.h"
+#include "common/mln_alloc.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-#include "client/mln_func.h"
-#include "client/mln_utils.h"
+#include "common/mln_func.h"
+#include "common/mln_utils.h"
 
 MLN_CHAIN_FUNC_DECLARE(mln_blk, mln_alloc_blk_t, static inline void, );
 MLN_CHAIN_FUNC_DECLARE(mln_chunk, mln_alloc_chunk_t, static inline void, );

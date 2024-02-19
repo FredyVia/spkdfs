@@ -30,6 +30,7 @@ namespace spkdfs {
     void snapshot();
     void load_snapshot();
     void ls(Inode& inode);
+    void get(Inode& inode);
     void prepare_mkdir(Inode& inode);
     void prepare_rm(Inode& inode);
     void prepare_put(Inode& inode);

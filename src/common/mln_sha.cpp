@@ -2,7 +2,7 @@
 /*
  * Copyright (C) Niklaus F.Schen.
  */
-#include "client/mln_sha.h"
+#include "common/mln_sha.h"
 
 #include <stdio.h>
 #include <stdlib.h>

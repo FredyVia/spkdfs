@@ -27,7 +27,7 @@ namespace spkdfs {
   }
 
   void RocksDB::snapshot() {
-    if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
+    if (db_ptr == nullptr) throw runtime_error("db not ready");
     Status s = backup_engine_ptr->CreateNewBackup(db_ptr);
     LOG_IF(ERROR, !s.ok()) << s.ToString();
     assert(s.ok());
@@ -106,9 +106,8 @@ namespace spkdfs {
   // std::vector<Status> RocksDB::multiGet(const vector<std::string>& keys,
   //                                       std::vector<std::string>& values) {
   //   // private not check
-  //   // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-  //   std::vector<Slice> keys;
-  //   std::vector<PinnableSlice> values;
+  //   // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db nt
+  //   ready")); std::vector<Slice> keys; std::vector<PinnableSlice> values;
 
   //   for (const auto& key : keys) {
   //     keys.emplace_back(key);
@@ -143,6 +142,28 @@ namespace spkdfs {
     // }
   }
 
+  void RocksDB::get(Inode& inode) {
+    if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
+    Status s;
+    string value;
+    LOG(INFO) << "get: inode.fullpath: " << inode.fullpath;
+    s = get(inode.fullpath, value);
+    LOG(INFO) << "get: inode.value(): " << value;
+    if (s.IsNotFound() && inode.fullpath != "/") {
+      throw runtime_error("path not exist");
+    }
+    if (s.ok()) {
+      auto _json = json::parse(value);
+      Inode tmpInode = _json.get<Inode>();
+      if (tmpInode.valid == false) {
+        throw runtime_error("not valid");
+      }
+      if (tmpInode.is_directory == true) {
+        throw runtime_error("cannot get directory");
+      }
+      inode = tmpInode;
+    }
+  }
   void RocksDB::prepare_mkdir(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     try_to_add(inode);
@@ -153,7 +174,6 @@ namespace spkdfs {
     inode.valid = true;
     inode.building = false;
   }
-
   void RocksDB::prepare_put(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     try_to_add(inode);
@@ -164,7 +184,7 @@ namespace spkdfs {
 
   void RocksDB::prepare_put_ok(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-    LOG(INFO) << "internal put" << inode.value();
+    LOG(INFO) << "prepare put ok" << inode.value();
     try_to_rm(inode);
   }
 

@@ -1,56 +1,75 @@
 #ifndef INODE_H
 #define INODE_H
 
+#include <glog/logging.h>
+
+#include <boost/coroutine2/all.hpp>
 #include <cassert>
 #include <filesystem>
+#include <fstream>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <nlohmann/json.hpp>
 #include <regex>
 #include <set>
 #include <string>
+
 namespace spkdfs {
   namespace fs = std::filesystem;
+  typedef boost::coroutines2::coroutine<std::string> coro_t;
   class StorageType {
   public:
-    static std::shared_ptr<StorageType> from_json(const nlohmann::json& j);
     virtual std::string to_string() const = 0;
     virtual void to_json(nlohmann::json& j) const = 0;
+    virtual std::vector<std::string> encode(const std::string& data) const = 0;
+    virtual void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const = 0;
+    virtual bool check(int success) const = 0;
+    static std::shared_ptr<StorageType> from_string(const std::string& input);
+    virtual ~StorageType(){};
   };
+
   class RSStorageType : public StorageType {
   private:
+    std::ifstream file;
+    unsigned long long offset;
+    std::string block;
+
+  public:
     unsigned int k;
     unsigned int m;
 
-  public:
     RSStorageType(unsigned int k, unsigned int m) : k(k), m(m){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
+    std::vector<std::string> encode(const std::string& data) const override;
+    void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
+    bool check(int success) const override;
   };
 
   class REStorageType : public StorageType {
   private:
-    unsigned int replications;
-
   public:
+    unsigned int replications;
     REStorageType(unsigned int replications) : replications(replications){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
+    std::vector<std::string> encode(const std::string& data) const override;
+    void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
+    bool check(int success) const override;
   };
-
-  std::shared_ptr<StorageType> from_string(const std::string& input);
 
   inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
     return storageType_ptr->to_string();
   }
-
-  std::shared_ptr<StorageType> from_json(const nlohmann::json& j);
+  void from_json(const nlohmann::json& j, std::shared_ptr<StorageType>& ptr);
 
   // inline std::string to_json(std::unique_ptr<StorageType> storageType_ptr) {
   //   return storageType_ptr->to_json();
   // }
   class Inode;
   inline void to_json(nlohmann::json& j, const Inode& inode);
+
   class Inode {
   public:
     std::string fullpath;
@@ -93,10 +112,11 @@ namespace spkdfs {
     inode.fullpath = j.at("fullpath").get<std::string>();
     inode.is_directory = j.at("is_directory").get<bool>();
     inode.filesize = j.at("filesize").get<int>();
+    inode.storage_type_ptr = nullptr;
     if (j.find("storage_type") != j.end()) {
-      inode.storage_type_ptr = StorageType::from_json(j.at("storage_type"));
-    } else {
-      inode.storage_type_ptr = nullptr;
+      LOG(INFO) << j.at("storage_type");
+      auto storage_type_json = nlohmann::json::parse(j.at("storage_type").get<std::string>());
+      from_json(storage_type_json, inode.storage_type_ptr);
     }
     inode.sub = j.at("sub").get<std::set<std::string>>();
     inode.valid = j.at("valid").get<bool>();

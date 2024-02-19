@@ -15,14 +15,14 @@ namespace spkdfs {
   //   if (node == namenode_master) return;
   //   namenode_master = node;
   //   if (channel.Init(to_string(namenode_master).c_str(), NULL) != 0) {
-  //     throw(runtime_error("Fail to init channel to " + to_string(namenode_master)));
+  //     throw runtime_error("Fail to init channel to " + to_string(namenode_master));
   //   }
   //   stub_ptr.reset(new NamenodeService_Stub(&channel));
   // }
 
   // void DatanodeServiceImpl::check_status() {
   //   if (namenode_master.valid()) {
-  //     throw runtime_error("NODE NEED WAIT");
+  //     throw  runtime_error("NODE NEED WAIT");
   //   }
   // }
 
@@ -43,6 +43,7 @@ namespace spkdfs {
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
+
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
@@ -68,6 +69,7 @@ namespace spkdfs {
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
+
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }

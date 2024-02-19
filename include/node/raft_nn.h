@@ -46,6 +46,7 @@ namespace spkdfs {
     void apply(const braft::Task& task);
 
     inline void ls(Inode& inode) { db.ls(inode); };
+    inline void get(Inode& inode) { db.get(inode); };
     inline void prepare_mkdir(Inode& inode) { db.prepare_mkdir(inode); }
     inline void prepare_rm(Inode& inode) { db.prepare_rm(inode); }
     inline void prepare_put(Inode& inode) { db.prepare_put(inode); }

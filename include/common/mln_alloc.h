@@ -12,7 +12,7 @@
 #else
 #  include <sys/mman.h>
 #endif
-#include "client/mln_types.h"
+#include "common/mln_types.h"
 
 typedef int (*mln_alloc_shm_lock_cb_t)(void *);
 

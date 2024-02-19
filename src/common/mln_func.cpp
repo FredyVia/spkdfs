@@ -3,7 +3,7 @@
  * Copyright (C) Niklaus F.Schen.
  */
 
-#include "client/mln_func.h"
+#include "common/mln_func.h"
 
 mln_func_cb_t mln_func_entry = NULL;
 mln_func_cb_t mln_func_exit = NULL;

@@ -126,7 +126,14 @@ namespace spkdfs {
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
-      request->path();
+      Inode inode;
+      inode.fullpath = request->path();
+      nn_raft_ptr->get(inode);
+      for (const auto& name : inode.sub) {
+        response->add_blkids(name);
+      }
+      *(response->mutable_storage_type()) = inode.storage_type_ptr->to_string();
+      response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
@@ -158,7 +165,7 @@ namespace spkdfs {
       Inode inode;
       inode.fullpath = request->path();
       inode.filesize = request->filesize();
-      inode.storage_type_ptr = from_string(request->storage_type());
+      inode.storage_type_ptr = StorageType::from_string(request->storage_type());
       nn_raft_ptr->prepare_put(inode);
       LOG(INFO) << "inode's prepare_put" << inode.value();
       Task task;
@@ -231,6 +238,7 @@ namespace spkdfs {
   //     response->
   //   } catch (const std::exception& e) {
   //     LOG(ERROR) << e.what();
+  //
   //     response->mutable_common()->set_success(false);
   //     *(response->mutable_common()->mutable_fail_info()) = e.what();
   //   }

@@ -1,26 +1,27 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
 #include "common/inode.h"
-#include "common/mln_rs.h"
-#include "common/mln_sha.h"
 #include "common/node.h"
+#include "common/utils.h"
 #include "service.pb.h"
 #define ROUND_UP_8(num) ((num + 7) & ~7)
 using namespace std;
 using namespace spkdfs;
 using namespace brpc;
+namespace fs = std::filesystem;
 
 DEFINE_string(command, "ls", "command type: ls mkdir put get");
 DEFINE_string(datanode, "127.0.0.1:18001", "required");
 DEFINE_string(namenode, "", "optional");
 DEFINE_string(namenode_master, "", "optional, namenode_master addr: <addr>:<port>");
-DEFINE_uint32(block_size, 64 * 1024, "optional, BLOCK size Bytes");
+// DEFINE_uint32(block_size, 64 * 1024, "optional, BLOCK size Kilo Bytes");
 DEFINE_string(storage_type, "rs(3,2)", "rs or replication, example: rs(3,2) re");
 template <typename ResponseType>
 void check_response(const Controller &cntl, const ResponseType &response) {
@@ -54,7 +55,12 @@ void Init() {
     if (!response.common().success()) {
       throw runtime_error(response.common().fail_info());
     }
-    cout << "namenode: " << response.nodes(0) << endl;
+    cout << "namenodes: ";
+    for (auto node : response.nodes()) {
+      cout << node << ", ";
+    }
+    cout << endl;
+    cout << "using namenode: " << response.nodes(0) << " to probe namenode master" << endl;
     gflags::SetCommandLineOption("namenode", response.nodes(0).c_str());
   }
   if (FLAGS_namenode_master == "") {
@@ -85,8 +91,8 @@ void Init() {
     throw runtime_error("namenode_master channel init failed");
   }
   nn_master_stub = new NamenodeService_Stub(&nn_master_channel);
-  cout << "successfully connected to namenode master" << endl;
 }
+
 void ls(const string &s) {
   Controller cntl;
   NNPathRequest request;
@@ -141,11 +147,15 @@ vector<Node> get_datanodes() {
   dn_stub.get_datanodes(&cntl, &request, &response, NULL);
   check_response(cntl, response);
   vector<Node> vec;
-  for (auto node_str : response.nodes()) {
+  for (const auto &node_str : response.nodes()) {
     Node node;
     from_string(node_str, node);
     vec.push_back(node);
   }
+  node_discovery(vec);
+  vec.erase(std::remove_if(vec.begin(), vec.end(),
+                           [](const Node &node) { return node.nodeStatus != NodeStatus::ONLINE; }),
+            vec.end());
   return vec;
 }
 
@@ -157,8 +167,6 @@ void put(const string &srcFilePath, const string &dstFilePath) {
     dn_channels[i].Init(to_string(nodes[i]).c_str(), NULL);
   }
   shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(FLAGS_storage_type);
-  mln_sha256_t s;
-  mln_sha256_init(&s);
 
   cout << "opening file " << srcFilePath << endl;
   ifstream file(srcFilePath, ios::binary | ios::ate);
@@ -181,26 +189,24 @@ void put(const string &srcFilePath, const string &dstFilePath) {
 
   NNPutOKRequest nnputok_req;
   *(nnputok_req.mutable_path()) = dstFilePath;
-
-  cout << "using block size: " << FLAGS_block_size << endl;
+  cout << "using block size: " << storage_type_ptr->get_b() << endl;
   string block;
-  block.resize(FLAGS_block_size);
+  block.resize(storage_type_ptr->get_b());
   int blockIndex = 0;
-  char sha256sum[1024] = {0};
+
   int node_index = 0;
   int i = 0;  // used to make std::set be ordered
-  while (file.read(&block[0], FLAGS_block_size) || file.gcount() > 0) {
+  while (file.read(&block[0], storage_type_ptr->get_b()) || file.gcount() > 0) {
     int succ = 0;
     size_t bytesRead = file.gcount();
-    if (bytesRead < FLAGS_block_size) {
+    if (bytesRead < storage_type_ptr->get_b()) {
       // size_t newSize = ROUND_UP_8(bytesRead);
-      block.resize(FLAGS_block_size, 0);  // 使用0填充到新大小
+      block.resize(storage_type_ptr->get_b(), '0');  // 使用0填充到新大小
     }
     auto vec = storage_type_ptr->encode(block);
     // 上传每个编码后的分块
     for (auto &encodedData : vec) {
-      mln_sha256_calc(&s, (mln_u8ptr_t)encodedData.c_str(), encodedData.size(), 1);
-      mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
+      auto sha256sum = cal_sha256sum(encodedData);
       cout << "sha256sum:" << sha256sum << endl;
       // 假设每个分块的大小是block.size() / k
 
@@ -209,7 +215,7 @@ void put(const string &srcFilePath, const string &dstFilePath) {
       DNPutRequest dn_req;
       CommonResponse dn_resp;
       DatanodeService_Stub dn_stub(&dn_channels[node_index]);
-      *(dn_req.mutable_blkid()) = string(sha256sum);
+      *(dn_req.mutable_blkid()) = sha256sum;
       *(dn_req.mutable_data()) = encodedData;
       cntl.Reset();
       dn_stub.put(&cntl, &dn_req, &dn_resp, NULL);
@@ -248,24 +254,48 @@ void get(const string &src, const string &dst) {
   nn_master_stub->get(&cntl, &request, &nnget_resp, NULL);
   check_response(cntl, nnget_resp);
   cout << "using storage type: " << nnget_resp.storage_type() << endl;
+  uint64_t filesize = nnget_resp.filesize();
   auto storage_type_ptr = StorageType::from_string(nnget_resp.storage_type());
-  for (auto &str : nnget_resp.blkids()) {
-    std::stringstream ss(str);
-    std::string _, node, blkid;
-    std::getline(ss, _, '|');      // 提取第一个部分
-    std::getline(ss, node, '|');   // 提取第二个部分
-    std::getline(ss, blkid, '|');  // 提取第三个部分
-    cout << _ << "|" << node << "|" << blkid << endl;
-    Channel dn_channel;
-
-    dn_channel.Init(node.c_str(), NULL);
-    DatanodeService_Stub dn_stub(&dn_channel);
-    DNGetRequest dnget_req;
-    DNGetResponse dnget_resp;
-    *(dnget_req.mutable_blkid()) = blkid;
-    cntl.Reset();
-    dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
+  auto generator = [&nnget_resp](coro_t::push_type &yield) {
+    for (auto &str : nnget_resp.blkids()) {
+      std::stringstream ss(str);
+      std::string _, node, blkid;
+      std::getline(ss, _, '|');      // 提取第一个部分
+      std::getline(ss, node, '|');   // 提取第二个部分
+      std::getline(ss, blkid, '|');  // 提取第三个部分
+      cout << _ << "|" << node << "|" << blkid << endl;
+      Channel dn_channel;
+      try {
+        dn_channel.Init(node.c_str(), NULL);
+        DatanodeService_Stub dn_stub(&dn_channel);
+        DNGetRequest dnget_req;
+        DNGetResponse dnget_resp;
+        *(dnget_req.mutable_blkid()) = blkid;
+        brpc::Controller cntl;
+        dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
+        check_response(cntl, dnget_resp);
+        cout << node << " | " << blkid << " success" << endl;
+        string data = dnget_resp.data();
+        cout << "dnget_resp blk size: " << data.size() << endl;
+        assert(cal_sha256sum(data) == blkid);
+        yield(data);
+      } catch (const exception &e) {
+        cout << node << " | " << blkid << " failed" << endl;
+        yield("");
+      }
+    };
   };
+  auto func = [&storage_type_ptr, &generator](coro_t::push_type &yield) {
+    coro_t::pull_type seq(boost::coroutines2::fixedsize_stack(), generator);
+    storage_type_ptr->decode(yield, seq);
+  };
+  coro_t::pull_type seq(boost::coroutines2::fixedsize_stack(), func);
+  ofstream dstFile(dst, std::ios::out);
+  for (auto data : seq) {
+    dstFile << data;
+  }
+  dstFile.close();
+  fs::resize_file(dst, filesize);
 }
 
 int main(int argc, char *argv[]) {
@@ -276,9 +306,9 @@ int main(int argc, char *argv[]) {
   // }
   // 初始化 channel
   Init();
-  for (int i = 1; i < argc; ++i) {
-    cout << "Remaining arg: " << argv[i] << endl;
-  }
+  // for (int i = 1; i < argc; ++i) {
+  // cout << "Remaining arg: " << argv[i] << endl;
+  // }
   if (FLAGS_command == "put") {
     put(argv[1], argv[2]);
     // 处理 put 命令

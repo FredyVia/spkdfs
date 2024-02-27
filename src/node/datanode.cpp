@@ -2,6 +2,7 @@
 
 #include <brpc/closure_guard.h>
 #include <brpc/controller.h>  // brpc::Controller
+#include <sys/syslog.h>
 
 #include <exception>
 #include <fstream>
@@ -33,13 +34,13 @@ namespace spkdfs {
     try {
       // check_status();
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
-      ofstream file(file_path, ios::binary);
+      ofstream file(file_path, std::ios::out | ios::binary);
       if (!file) {
         LOG(ERROR) << "Failed to open file for writing.";
         throw runtime_error("openfile error:" + file_path);
       }
       file << request->data();
-      file.close();
+      file.close();  // auto close when deconstruct
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
@@ -56,14 +57,29 @@ namespace spkdfs {
     try {
       // check_status();
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
-      std::ifstream file(
-          file_path, std::ios::binary | std::ios::ate);  // 打开文件并移动到文件末尾以确定文件大小
+      string data;
+      std::ifstream file(file_path, std::ios::binary);
       if (!file) {
         LOG(ERROR) << "Failed to open file for reading.";
         throw std::runtime_error("openfile error:" + file_path);
       }
-      file >> *(response->mutable_data());
+
+      // 移动到文件末尾来确定文件大小
+      file.seekg(0, std::ios::end);
+      std::streamsize size = file.tellg();
+      file.seekg(0, std::ios::beg);
+
+      // 为整个文件内容预留空间，然后读取
+      data.resize(size);
+      if (!file.read(&data[0], size)) {
+        LOG(ERROR) << "Failed to read file content.";
+        throw std::runtime_error("readfile error:" + file_path);
+      }
+
       file.close();
+
+      *(response->mutable_data()) = data;
+      LOG(INFO) << "get file data size: " << data.size();
 
       // 将读取的数据设置到响应中
       response->mutable_common()->set_success(true);

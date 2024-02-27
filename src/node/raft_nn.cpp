@@ -64,6 +64,34 @@ namespace spkdfs {
     // 实现细节
     for (; iter.valid(); iter.next()) {
       braft::AsyncClosureGuard closure_guard(iter.done());
+      LOG(INFO) << "on apply";
+
+      butil::IOBuf data = iter.data();
+      uint8_t type = OP_UNKNOWN;
+      data.cutn(&type, sizeof(uint8_t));
+      string str_inode;
+      data.copy_to(&str_inode);
+      auto _json = json::parse(str_inode);
+      Inode inode = _json.get<Inode>();
+      switch (type) {
+        case OP_MKDIR:
+          internal_mkdir(inode);
+          break;
+        case OP_PUT:
+          internal_put(inode);
+          break;
+        case OP_PUTOK:
+          internal_put_ok(inode);
+          break;
+        case OP_RM:
+          internal_rm(inode);
+          break;
+        case OP_UNKNOWN:
+          break;
+        default:
+          CHECK(false) << "Unknown type=" << static_cast<int>(type);
+          break;
+      }
     }
   }
 

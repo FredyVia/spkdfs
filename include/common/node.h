@@ -10,14 +10,18 @@
 
 namespace spkdfs {
   enum class NodeStatus { ONLINE, OFFLINE, UNKNOWN };
-
+  class Node;
+  inline void from_string(const std::string& node_str, Node& node);
   class Node {
   public:
     std::string ip;
     int port;
     NodeStatus nodeStatus;
     Node(std::string ip = "", int port = 0, NodeStatus nodeStatus = NodeStatus::UNKNOWN)
-        : ip(ip), port(port), nodeStatus(nodeStatus){};
+        : ip(ip), port(port), nodeStatus(nodeStatus) {
+      // warning: ipv6 not supported
+      from_string(ip, *this);
+    };
     void scan();
     // 重载 == 运算符
     bool operator==(const Node& other) const;

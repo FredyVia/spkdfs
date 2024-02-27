@@ -67,8 +67,10 @@ namespace spkdfs {
       LOG(INFO) << "going to propose inode: " << inode.value();
       Task task;
       butil::IOBuf buf;
+      buf.push_back(OpType::OP_MKDIR);
+      buf.append(inode.value());
       task.data = &buf;  // task.data cannot be NULL
-      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_mkdir(inode); });
+      task.done = nullptr;
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
@@ -106,8 +108,10 @@ namespace spkdfs {
       LOG(INFO) << "going to propose inode: " << inode.value();
       Task task;
       butil::IOBuf buf;
+      buf.push_back(OpType::OP_RM);
+      buf.append(inode.value());
       task.data = &buf;  // task.data cannot be NULL
-      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_rm(inode); });
+      task.done = nullptr;
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
@@ -134,12 +138,14 @@ namespace spkdfs {
       }
       *(response->mutable_storage_type()) = inode.storage_type_ptr->to_string();
       response->mutable_common()->set_success(true);
+      response->set_filesize(inode.filesize);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
+
   void NamenodeServiceImpl::put(::google::protobuf::RpcController* controller,
                                 const NNPutRequest* request, NNPutResponse* response,
                                 ::google::protobuf::Closure* done) {
@@ -170,8 +176,10 @@ namespace spkdfs {
       LOG(INFO) << "inode's prepare_put" << inode.value();
       Task task;
       butil::IOBuf buf;
+      buf.push_back(OpType::OP_PUT);
+      buf.append(inode.value());
       task.data = &buf;
-      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_put(inode); });
+      task.done = nullptr;
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
@@ -180,6 +188,7 @@ namespace spkdfs {
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   };
+
   void NamenodeServiceImpl::put_ok(::google::protobuf::RpcController* controller,
                                    const NNPutOKRequest* request, CommonResponse* response,
                                    ::google::protobuf::Closure* done) {
@@ -199,8 +208,10 @@ namespace spkdfs {
       LOG(INFO) << "inode's prepare_put_ok" << inode.value();
       Task task;
       butil::IOBuf buf;
+      buf.push_back(OpType::OP_PUTOK);
+      buf.append(inode.value());
       task.data = &buf;
-      task.done = new LambdaClosure([inode, this]() { nn_raft_ptr->internal_put_ok(inode); });
+      task.done = nullptr;
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {

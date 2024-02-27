@@ -2,6 +2,7 @@
 
 #include <brpc/closure_guard.h>
 #include <butil/logging.h>
+#include <dbg.h>
 
 #include <algorithm>
 #include <exception>
@@ -11,7 +12,6 @@
 
 #include "backward.hpp"
 #include "common/node.h"
-#include "dbg.h"
 #include "node/config.h"
 namespace spkdfs {
   using namespace std;
@@ -92,7 +92,7 @@ namespace spkdfs {
         [this](const void* args) {
           string lossip = string(static_cast<const char*>(args));
           LOG(INFO) << "lossIP: " << lossip;
-          on_nodes_loss({});
+          on_nodes_loss({Node(lossip)});
         });
   }
   // my onw callback, not override
@@ -104,7 +104,6 @@ namespace spkdfs {
   vector<Node> RaftDN::get_namenodes() { return namenode_list; }
   vector<Node> RaftDN::get_datanodes() { return datanode_list; }
   void RaftDN::on_leader_start(int64_t term) {
-    backward::SignalHandling sh;
     LOG(INFO) << "Node becomes leader";
     vector<Node> nodes = get_namenodes();
     std::sort(nodes.begin(), nodes.end());
@@ -186,7 +185,7 @@ namespace spkdfs {
   void RaftDN::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     string file_path = writer->get_path() + "/namenodes.json";
-    ofstream file(file_path, fstream::out);
+    ofstream file(file_path, std::ios::out | ios::binary);
     if (!file) {
       LOG(ERROR) << "Failed to open file for writing.";
       done->status().set_error(EIO, "Fail to save " + file_path);
@@ -201,7 +200,7 @@ namespace spkdfs {
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
     string file_path = reader->get_path() + "namenodes.json";
     string str;
-    ifstream file(file_path, std::fstream::in | std::fstream::out | std::fstream::app);
+    ifstream file(file_path, std::fstream::in | ios::binary);
     if (!file) {
       LOG(ERROR) << "Failed to open file for reading.";
       return -1;

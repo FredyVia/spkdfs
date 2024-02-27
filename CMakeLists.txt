@@ -50,7 +50,7 @@ find_path(DBG_MACRO_INCLUDE_DIRS "dbg.h")
 file(GLOB src_common CONFIGURE_DEPENDS src/common/*.cpp)
 file(GLOB src_node CONFIGURE_DEPENDS src/node/*.cpp)
 file(GLOB src_client CONFIGURE_DEPENDS src/client/*.cpp)
-file(GLOB src_tests CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/test/src/*.cpp)
+file(GLOB src_tests CONFIGURE_DEPENDS test/src/*.cpp)
 
 add_executable(node ${src_node} ${src_common} ${PROTO_SRCS})
 add_executable(client ${src_client} ${src_common} ${PROTO_SRCS})
@@ -60,13 +60,13 @@ list(FILTER src_client EXCLUDE REGEX "src/client/main\\.cpp$")
 
 add_executable(tests  ${src_node} ${src_client} ${src_tests} ${src_common} ${PROTO_SRCS})
 
-target_include_directories(node PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(client PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(tests PUBLIC ${PROJECT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(node PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context)
-target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward Boost::boost Boost::context)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context)
+target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context erasurecode)
+target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward Boost::boost Boost::context erasurecode)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context erasurecode)
 
 enable_testing() 
 

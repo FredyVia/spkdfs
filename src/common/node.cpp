@@ -4,13 +4,13 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 #include <brpc/server.h>      // brpc::Server
+#include <dbg.h>
 #include <glog/logging.h>
 
 #include <exception>
 #include <functional>
 #include <thread>
 
-#include "dbg.h"
 #include "service.pb.h"
 
 namespace spkdfs {
@@ -37,7 +37,7 @@ namespace spkdfs {
     Request request;
     CommonResponse response;
 
-    cntl.set_timeout_ms(10000);
+    cntl.set_timeout_ms(5000);
     CommonService_Stub stub(&channel);
     stub.echo(&cntl, &request, &response, NULL);
 
@@ -99,7 +99,7 @@ namespace spkdfs {
     }
     for (const auto& node : nodes) {
       LOG(INFO) << node;
-      pretty_print(LOG(INFO), node.nodeStatus);
+      pretty_print(LOG(INFO), node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
     }
   }
 }  // namespace spkdfs

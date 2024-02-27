@@ -26,7 +26,8 @@ message NNLsResponse {
 message NNGetResponse {
   Response common = 1;
   string storage_type = 2;
-  repeated string blkids = 3;
+  uint64 filesize = 3;
+  repeated string blkids = 4;
 };
 
 message NNPutRequest {

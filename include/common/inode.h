@@ -16,10 +16,14 @@
 #include <string>
 
 namespace spkdfs {
-  namespace fs = std::filesystem;
   typedef boost::coroutines2::coroutine<std::string> coro_t;
   class StorageType {
+  protected:
+    StorageType(unsigned int b) : b(b) {}
+    unsigned int b;
+
   public:
+    virtual inline unsigned int get_b() { return b * 1024 * 1024; }
     virtual std::string to_string() const = 0;
     virtual void to_json(nlohmann::json& j) const = 0;
     virtual std::vector<std::string> encode(const std::string& data) const = 0;
@@ -28,18 +32,22 @@ namespace spkdfs {
     static std::shared_ptr<StorageType> from_string(const std::string& input);
     virtual ~StorageType(){};
   };
-
+  // std::vector<string> encode(StorageType* storage_type_ptr, std::istream ist) {
+  //   while (file.read(&block[0], storage_type_ptr->get_b()) || file.gcount() > 0) {
+  //     int succ = 0;
+  //     size_t bytesRead = file.gcount();
+  //     auto vec = storage_type_ptr->encode(block);
+  //     // 上传每个编码后的分块
+  //     blockIndex++;
+  //   }
+  // }
   class RSStorageType : public StorageType {
-  private:
-    std::ifstream file;
-    unsigned long long offset;
-    std::string block;
-
   public:
     unsigned int k;
     unsigned int m;
 
-    RSStorageType(unsigned int k, unsigned int m) : k(k), m(m){};
+    RSStorageType(unsigned int k, unsigned int m, unsigned int b) : StorageType(b), k(k), m(m){};
+    inline unsigned int get_b() override { return ((StorageType::get_b() + k - 1) / k) * k; };
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
@@ -51,7 +59,8 @@ namespace spkdfs {
   private:
   public:
     unsigned int replications;
-    REStorageType(unsigned int replications) : replications(replications){};
+    REStorageType(unsigned int replications, unsigned int b)
+        : StorageType(b), replications(replications){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
@@ -80,11 +89,11 @@ namespace spkdfs {
     bool valid;
     bool building;
     inline std::string filename() const {
-      fs::path filepath(fullpath);
+      std::filesystem::path filepath(fullpath);
       return filepath.filename().string();
     }
     inline std::string parent_path() const {
-      fs::path filepath(fullpath);
+      std::filesystem::path filepath(fullpath);
       return filepath.parent_path().string();
     }
     inline std::string key() const { return fullpath; }

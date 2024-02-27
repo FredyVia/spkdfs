@@ -13,21 +13,7 @@
 
 namespace spkdfs {
   // using LeaderChangeCallbackType = std::function<void(const std::vector<Node>&)>;
-  class LambdaClosure : public braft::Closure {
-  public:
-    using FuncType = std::function<void()>;
-
-    explicit LambdaClosure(const FuncType& func) : _func(std::move(func)) {}
-
-    void Run() override {
-      if (_func) {
-        _func();  // 调用 lambda 表达式
-      }
-    }
-
-  private:
-    FuncType _func;  // 存储 lambda 表达式
-  };
+  enum OpType { OP_MKDIR, OP_PUT, OP_PUTOK, OP_RM, OP_UNKNOWN };
   class RaftNN : public braft::StateMachine {
   private:
     RocksDB db;

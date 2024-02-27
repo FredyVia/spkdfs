@@ -3,6 +3,8 @@
 #include <glog/logging.h>
 
 #include <filesystem>
+
+#include "common/mln_sha.h"
 namespace spkdfs {
   using namespace std;
 
@@ -17,6 +19,14 @@ namespace spkdfs {
         throw runtime_error("mkdir error: " + ec.message());
       }
     }
+  }
+  std::string cal_sha256sum(std::string data) {
+    mln_sha256_t s;
+    mln_sha256_init(&s);
+    char sha256sum[1024] = {0};
+    mln_sha256_calc(&s, (mln_u8ptr_t)data.c_str(), data.size(), 1);
+    mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
+    return sha256sum;
   }
 
 }  // namespace spkdfs

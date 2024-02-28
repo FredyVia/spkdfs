@@ -53,7 +53,8 @@ namespace spkdfs {
   }
 
   void RaftDN::shutdown() { raft_node->shutdown(NULL); }
-
+  void RaftDN::add_node(const Node& node) { raft_node->add_peer(node.to_peerid(), NULL); }
+  void RaftDN::remove_node(const Node& node) { raft_node->remove_peer(node.to_peerid(), NULL); }
   void RaftDN::on_apply(braft::Iterator& iter) {
     // 实现细节
     butil::IOBuf data;
@@ -68,10 +69,13 @@ namespace spkdfs {
     applyCallback(namenode_list);
     if (leader().ip != butil::my_ip_cstr()) {
       if (nn_timer != nullptr) {
+        LOG(INFO) << "stop nn_timer";
         delete nn_timer;
+        nn_timer = nullptr;
       }
       return;
     }
+    LOG(INFO) << "start nn_timer";
     nn_timer = new NNTimer(
         20,
         [this]() {

@@ -9,18 +9,16 @@ namespace spkdfs {
   using json = nlohmann::json;
   using namespace std;
   std::shared_ptr<StorageType> StorageType::from_string(const std::string& input) {
-    std::regex pattern("RS<(\\d+),(\\d+),(\\d+)>|RE<(\\d+),(\\d+)>");
+    std::regex pattern("RS<(\\d+),(\\d+)>|RE<(\\d+)>");
     std::smatch match;
     if (std::regex_match(input, match, pattern)) {
       if (match[1].matched) {
         uint32_t k = std::stoi(match[1]);
         uint32_t m = std::stoi(match[2]);
-        uint32_t b = std::stoi(match[3]);
-        return std::make_shared<RSStorageType>(k, m, b);
+        return std::make_shared<RSStorageType>(k, m);
       } else if (match[3].matched) {
-        uint32_t replications = std::stoi(match[4]);
-        uint32_t b = std::stoi(match[5]);
-        return std::make_shared<REStorageType>(replications, b);
+        uint32_t replications = std::stoi(match[3]);
+        return std::make_shared<REStorageType>(replications);
       }
     }
     throw runtime_error("cannot decode" + input);
@@ -32,12 +30,10 @@ namespace spkdfs {
     if (type == "RS") {
       uint32_t k = j.at("k").get<uint32_t>();
       uint32_t m = j.at("m").get<uint32_t>();
-      uint32_t b = j.at("b").get<uint32_t>();
-      ptr = std::make_shared<RSStorageType>(k, m, b);
+      ptr = std::make_shared<RSStorageType>(k, m);
     } else if (type == "RE") {
       uint32_t replications = j.at("replications").get<uint32_t>();
-      uint32_t b = j.at("b").get<uint32_t>();
-      ptr = std::make_shared<REStorageType>(replications, b);
+      ptr = std::make_shared<REStorageType>(replications);
     } else {
       LOG(ERROR) << type;
       throw std::invalid_argument("Unknown StorageType");
@@ -45,13 +41,12 @@ namespace spkdfs {
   }
 
   std::string RSStorageType::to_string() const {
-    return "RS<" + std::to_string(k) + "," + std::to_string(m) + "," + std::to_string(b) + ">";
+    return "RS<" + std::to_string(k) + "," + std::to_string(m) + ">";
   }
   void RSStorageType::to_json(json& j) const {
     j["type"] = "RS";
     j["k"] = k;
     j["m"] = m;
-    j["b"] = b;
   }
   // std::vector<std::string> RSStorageType::encode(const std::string& _data) const {
   //   cout << "rs encode" << endl;
@@ -174,12 +169,11 @@ namespace spkdfs {
   }
 
   std::string REStorageType::to_string() const {
-    return "RE<" + std::to_string(replications) + "," + std::to_string(b) + ">";
+    return "RE<" + std::to_string(replications) + ">";
   }
   void REStorageType::to_json(json& j) const {
     j["type"] = "RE";
     j["replications"] = replications;
-    j["b"] = b;
   }
 
   void REStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {

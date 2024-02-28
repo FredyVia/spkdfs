@@ -29,9 +29,7 @@ namespace spkdfs {
 
       nn_raft_ptr->ls(inode);
       response->mutable_common()->set_success(true);
-      for (const auto& name : inode.sub) {
-        response->add_data(name);
-      }
+      *(response->mutable_data()) = inode.value();
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
@@ -59,7 +57,9 @@ namespace spkdfs {
 
       Inode inode;
       inode.fullpath = request->path();
-
+      if (inode.fullpath[0] != '/') {
+        inode.fullpath = "/" + inode.fullpath;
+      }
       nn_raft_ptr->prepare_mkdir(inode);
       // task.data
 
@@ -79,6 +79,7 @@ namespace spkdfs {
       *(response->mutable_common()->mutable_fail_info()) = e.what();
     }
   }
+
   void NamenodeServiceImpl::rm(::google::protobuf::RpcController* controller,
                                const NNPathRequest* request, CommonResponse* response,
                                ::google::protobuf::Closure* done) {

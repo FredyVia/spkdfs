@@ -20,7 +20,7 @@ message NNPathRequest {
 }
 message NNLsResponse {
   Response common = 1;
-  repeated string data = 2;
+  string data = 2;
 };
 
 message NNGetResponse {

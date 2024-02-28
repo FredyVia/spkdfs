@@ -68,6 +68,4 @@ target_link_libraries(node unofficial::braft::braft-static gflags::gflags unoffi
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward Boost::boost Boost::context erasurecode)
 target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context erasurecode)
 
-enable_testing() 
-
-
+enable_testing()

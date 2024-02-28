@@ -71,7 +71,8 @@ namespace spkdfs {
     std::vector<Node> get_datanodes();
 
     void inline set_namenodes(const std::vector<Node>& nodes) { namenode_list = nodes; }
-
+    void add_node(const Node& node);
+    void remove_node(const Node& node);
     void on_apply(braft::Iterator& iter) override;
     // void on_shutdown() override;
     void on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) override;

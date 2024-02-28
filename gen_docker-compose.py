@@ -9,6 +9,7 @@ services:
 s = """
   node${INDEX}:
     image: spkdfs:latest
+    hostname: node${INDEX}
     command:
       [
         "-nodes=${IPS}",

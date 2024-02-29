@@ -10,7 +10,6 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "backward.hpp"
 #include "common/node.h"
 #include "node/config.h"
 namespace spkdfs {

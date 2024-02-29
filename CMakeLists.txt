@@ -14,15 +14,15 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 # find package
-find_package(Threads REQUIRED)
+find_package(PkgConfig REQUIRED)
 
-find_package(Backward CONFIG REQUIRED)
+find_package(Threads REQUIRED)
 
 find_package(unofficial-breakpad CONFIG REQUIRED)
 
 find_package(GTest CONFIG REQUIRED)
 
-set(GFLAGS_USE_TARGET_NAMESPACE ON)
+# set(GFLAGS_USE_TARGET_NAMESPACE ON)
 find_package(gflags CONFIG REQUIRED)
 
 find_package(unofficial-braft CONFIG REQUIRED)
@@ -38,6 +38,8 @@ find_package(glog CONFIG REQUIRED)
 find_package(RocksDB CONFIG REQUIRED)
 
 find_package(Boost REQUIRED context)
+
+pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
 # 指定 protobuf 文件
 set(PROTO_FILE src/common/service.proto)
 # 生成 protobuf 源文件和头文件
@@ -64,8 +66,8 @@ target_include_directories(node PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG
 target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context erasurecode)
-target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Backward::Backward Boost::boost Boost::context erasurecode)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client Backward::Backward RocksDB::rocksdb Boost::boost Boost::context erasurecode)
+target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb Boost::boost Boost::context PkgConfig::LIBERASURECODE)
+target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Boost::boost Boost::context PkgConfig::LIBERASURECODE)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb Boost::boost Boost::context PkgConfig::LIBERASURECODE)
 
 enable_testing()

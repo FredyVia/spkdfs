@@ -76,7 +76,7 @@ namespace spkdfs {
     }
     LOG(INFO) << "start nn_timer";
     nn_timer = new NNTimer(
-        20,
+        10,
         [this]() {
           size_t retryCount = 0;  // 重试计数器
           for (size_t i = 0; i < namenode_list.size(); ++i) {

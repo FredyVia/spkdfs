@@ -1,6 +1,5 @@
-cmake_minimum_required(VERSION 3.22)
-cmake_policy(SET CMP0003 NEW)
-cmake_policy(SET CMP0012 NEW)
+cmake_minimum_required(VERSION 3.14...3.22)
+
 set(CMAKE_CXX_STANDARD 17)
 
 project(Spkdfs LANGUAGES CXX)

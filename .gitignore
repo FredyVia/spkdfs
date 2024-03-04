@@ -1,10 +1,8 @@
 /build*
 /.vscode
-/cpm_modules
 .DS_Store
-tmp
-symbols
-venv
-.cache
-docker-compose.yml
-Testing
+/tmp
+/venv
+/docker-compose.yml
+/Testing
+/mnt

@@ -76,7 +76,7 @@ namespace spkdfs {
     if (nn_master_stub_ptr != nullptr) delete nn_master_stub_ptr;
     if (dn_stub_ptr != nullptr) delete dn_stub_ptr;
   }
-  void SDK::ls(const std::string &dst) {
+  vector<std::string> SDK::ls(const std::string &dst) {
     Controller cntl;
     NNPathRequest request;
     NNLsResponse response;
@@ -92,15 +92,20 @@ namespace spkdfs {
     }
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
+    vector<string> res;
     if (inode.is_directory) {
       for (auto sub : inode.sub) {
-        cout << sub << endl;
+        // cout << sub << endl;
+        res.push_back(sub);
       }
     } else {
-      cout << inode.fullpath << " " << inode.filesize << " "
-           << (inode.storage_type_ptr == nullptr ? "UNKNOWN" : inode.storage_type_ptr->to_string())
-           << endl;
+      res.push_back(inode.fullpath);
+      // cout << inode.fullpath << " " << inode.filesize << " "
+      //      << (inode.storage_type_ptr == nullptr ? "UNKNOWN" :
+      //      inode.storage_type_ptr->to_string())
+      //      << endl;
     }
+    return res;
   }
 
   void SDK::mkdir(const string &dst) {

@@ -39,6 +39,8 @@ find_package(RocksDB CONFIG REQUIRED)
 find_package(Boost REQUIRED context)
 
 pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
+pkg_check_modules(FUSE3 REQUIRED fuse3)
+
 # 指定 protobuf 文件
 set(PROTO_FILE src/common/service.proto)
 # 生成 protobuf 源文件和头文件
@@ -52,21 +54,23 @@ file(GLOB src_common CONFIGURE_DEPENDS src/common/*.cpp)
 file(GLOB src_node CONFIGURE_DEPENDS src/node/*.cpp)
 file(GLOB src_client CONFIGURE_DEPENDS src/client/*.cpp)
 file(GLOB src_tests CONFIGURE_DEPENDS test/src/*.cpp)
+file(GLOB src_libfuse CONFIGURE_DEPENDS libfuse/*.cpp)
 
 add_executable(node ${src_node} ${src_common} ${PROTO_SRCS})
 add_executable(client ${src_client} ${src_common} ${PROTO_SRCS})
-
 list(FILTER src_node EXCLUDE REGEX "src/node/main\\.cpp$")
 list(FILTER src_client EXCLUDE REGEX "src/client/main\\.cpp$")
-
 add_executable(tests  ${src_node} ${src_client} ${src_tests} ${src_common} ${PROTO_SRCS})
+add_executable(fuse-spkdfs ${src_libfuse} ${src_common} ${src_client} ${PROTO_SRCS})
 
 target_include_directories(node PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
 target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb Boost::boost Boost::context PkgConfig::LIBERASURECODE)
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json Boost::boost Boost::context PkgConfig::LIBERASURECODE)
 target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb Boost::boost Boost::context PkgConfig::LIBERASURECODE)
+target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static Boost::context PkgConfig::LIBERASURECODE fuse3)
 
 enable_testing()

@@ -14,7 +14,7 @@ DEFINE_string(datanode, "127.0.0.1:18001", "datanode addr:port");
 DEFINE_string(storage_type, "RS<3,2,64>",
               "rs or replication, example: rs<3,2,64> re<5,64>, k=3,m=2,blocksize=64MB ");
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   // if (argc < 2) {
   //   cout << "help" << endl;
@@ -30,7 +30,9 @@ int main(int argc, char *argv[]) {
   } else if (FLAGS_command == "get") {
     sdk.get(argv[1], argv[2]);
   } else if (FLAGS_command == "ls") {
-    sdk.ls(argv[1]);
+    for (auto& str : sdk.ls(argv[1])) {
+      cout << str << endl;
+    }
   } else if (FLAGS_command == "mkdir") {
     sdk.mkdir(argv[1]);
   } else if (FLAGS_command == "rm") {

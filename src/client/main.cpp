@@ -8,7 +8,6 @@
 using namespace std;
 using namespace spkdfs;
 
-DEFINE_uint32(blocksize, 64 * 1024 * 1024, "block size");
 DEFINE_string(command, "ls", "command type: ls mkdir put get");
 DEFINE_string(datanode, "127.0.0.1:18001", "datanode addr:port");
 DEFINE_string(storage_type, "RS<3,2,64>",
@@ -26,7 +25,7 @@ int main(int argc, char* argv[]) {
   // cout << "Remaining arg: " << argv[i] << endl;
   // }
   if (FLAGS_command == "put") {
-    sdk.put(argv[1], argv[2], FLAGS_storage_type, FLAGS_blocksize);
+    sdk.put(argv[1], argv[2], FLAGS_storage_type);
   } else if (FLAGS_command == "get") {
     sdk.get(argv[1], argv[2]);
   } else if (FLAGS_command == "ls") {

@@ -198,6 +198,11 @@ static int spkdfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
 
 static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
+  Inode inode = fuse_ptr->ls(path);
+  if (inode.is_directory) {
+    cout << "is directory" << endl;
+    throw runtime_error("is directory error" + string(path));
+  }
 
   // if ((fi->flags & O_ACCMODE) != O_RDONLY) return -EACCES;
   // try {
@@ -211,7 +216,6 @@ static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
 static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
                        struct fuse_file_info *fi) {
   size_t len;
-  (void)fi;
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
 
   // len = strlen(options.contents);
@@ -223,11 +227,15 @@ static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
 
   return size;
 }
-
+static int spkdfs_write(const char *, const char *, size_t size, off_t offset,
+                        struct fuse_file_info *) {
+  return size;
+}
 static const struct fuse_operations spkdfs_oper = {
     .getattr = spkdfs_getattr,  // 316
     .open = spkdfs_open,        // 441
     .read = spkdfs_read,        // 452
+    .write = spkdfs_write,
     .readdir = spkdfs_readdir,  // 561
     .init = spkdfs_init,        // 583
 };

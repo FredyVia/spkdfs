@@ -110,7 +110,7 @@ namespace spkdfs {
   }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
-                const std::string &storage_type, unsigned int block_size = 64 * 1024 * 1024) {
+                const std::string &storage_type) {
     auto nodes = get_datanodes();
 
     vector<Channel> dn_channels(nodes.size());
@@ -140,6 +140,7 @@ namespace spkdfs {
 
     NNPutOKRequest nn_putok_req;
     *(nn_putok_req.mutable_path()) = dstFilePath;
+    uint64_t block_size = storage_type_ptr->getBlockSize();
     cout << "using block size: " << block_size << endl;
     string block;
     block.resize(block_size);

@@ -18,21 +18,26 @@
 namespace spkdfs {
   typedef boost::coroutines2::coroutine<std::string> coro_t;
   class StorageType {
+  protected:
+    uint32_t b;  // MB
+
   public:
+    StorageType(uint32_t b) : b(b){};
     virtual std::string to_string() const = 0;
     virtual void to_json(nlohmann::json& j) const = 0;
     virtual std::vector<std::string> encode(const std::string& data) const = 0;
     virtual void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const = 0;
     virtual bool check(int success) const = 0;
     static std::shared_ptr<StorageType> from_string(const std::string& input);
+    inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
     virtual ~StorageType(){};
   };
   class RSStorageType : public StorageType {
   public:
-    unsigned int k;
-    unsigned int m;
+    uint32_t k;
+    uint32_t m;
 
-    RSStorageType(unsigned int k, unsigned int m) : k(k), m(m){};
+    RSStorageType(uint32_t k, uint32_t m, uint32_t b) : k(k), m(m), StorageType(b){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
@@ -43,8 +48,8 @@ namespace spkdfs {
   class REStorageType : public StorageType {
   private:
   public:
-    unsigned int replications;
-    REStorageType(unsigned int replications) : replications(replications){};
+    uint32_t replications;
+    REStorageType(uint32_t replications, uint32_t b) : replications(replications), StorageType(b){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
@@ -67,7 +72,7 @@ namespace spkdfs {
   public:
     std::string fullpath;
     bool is_directory;
-    unsigned long long filesize;
+    uint32_t filesize;
     std::shared_ptr<StorageType> storage_type_ptr;
     std::set<std::string> sub;  // sub directory for directory or blks for file
     bool valid;

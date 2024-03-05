@@ -9,20 +9,21 @@ namespace spkdfs {
   using json = nlohmann::json;
   using namespace std;
   std::shared_ptr<StorageType> StorageType::from_string(const std::string& input) {
-    std::regex pattern("RS<(\\d+),(\\d+)>|RE<(\\d+)>");
+    std::regex pattern("RS<(\\d+),(\\d+),(\\d+)>|RE<(\\d+),(\\d+)>");
     std::smatch match;
     if (std::regex_match(input, match, pattern)) {
       if (match[1].matched) {
         uint32_t k = std::stoi(match[1]);
         uint32_t m = std::stoi(match[2]);
-        return std::make_shared<RSStorageType>(k, m);
-      } else if (match[3].matched) {
-        uint32_t replications = std::stoi(match[3]);
-        return std::make_shared<REStorageType>(replications);
+        uint32_t b = std::stoi(match[3]);
+        return std::make_shared<RSStorageType>(k, m, b);
+      } else if (match[4].matched) {
+        uint32_t replications = std::stoi(match[4]);
+        uint32_t b = std::stoi(match[5]);
+        return std::make_shared<REStorageType>(replications, b);
       }
     }
-    throw runtime_error("cannot decode");
-    return nullptr;
+    throw runtime_error("cannot solve " + input);
   }
 
   void from_json(const json& j, std::shared_ptr<StorageType>& ptr) {
@@ -30,10 +31,12 @@ namespace spkdfs {
     if (type == "RS") {
       uint32_t k = j.at("k").get<uint32_t>();
       uint32_t m = j.at("m").get<uint32_t>();
-      ptr = std::make_shared<RSStorageType>(k, m);
+      uint32_t b = j.at("b").get<uint32_t>();
+      ptr = std::make_shared<RSStorageType>(k, m, b);
     } else if (type == "RE") {
       uint32_t replications = j.at("replications").get<uint32_t>();
-      ptr = std::make_shared<REStorageType>(replications);
+      uint32_t b = j.at("b").get<uint32_t>();
+      ptr = std::make_shared<REStorageType>(replications, b);
     } else {
       LOG(ERROR) << type;
       throw std::invalid_argument("Unknown StorageType");
@@ -41,36 +44,15 @@ namespace spkdfs {
   }
 
   std::string RSStorageType::to_string() const {
-    return "RS<" + std::to_string(k) + "," + std::to_string(m) + ">";
+    return "RS<" + std::to_string(k) + "," + std::to_string(m) + "," + std::to_string(b) + ">";
   }
   void RSStorageType::to_json(json& j) const {
     j["type"] = "RS";
     j["k"] = k;
     j["m"] = m;
+    j["b"] = b;
   }
-  // std::vector<std::string> RSStorageType::encode(const std::string& _data) const {
-  //   cout << "rs encode" << endl;
-  //   string data = _data;
-  //   data.resize(((_data.size() + k - 1) / k) * k, '0');
-  //   std::vector<std::string> vec;
-  //   // 使用Melon库进行纠删码编码
-  //   mln_rs_result_t* res = mln_rs_encode((uint8_t*)data.data(), data.size() / k, k, m);
-  //   if (res == nullptr) {
-  //     cerr << "rs encode failed.\n";
-  //     throw runtime_error("rs encode failed");
-  //   }
 
-  //   for (int j = 0; j < k + m; j++) {
-  //     uint8_t* encodedData = mln_rs_result_get_data_by_index(res, j);
-  //     if (encodedData == nullptr) {
-  //       throw runtime_error("encoded error");
-  //     }
-  //     cout << "encodedData: " << string((char*)encodedData) << endl;
-  //     vec.push_back(string((char*)encodedData));
-  //   }
-  //   mln_rs_result_free(res);
-  //   return vec;
-  // }
   std::vector<std::string> RSStorageType::encode(const std::string& data) const {
     struct ec_args args = {.k = k, .m = m};
     int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
@@ -124,39 +106,7 @@ namespace spkdfs {
       }
     }
   }
-  // void RSStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {
-  //   cout << "rs decode" << endl;
-  //   int j = 0;
-  //   uint8_t* datas[k + m];
-  //   vector<string> str_datas(k + m);
-  //   int size = 0;
-  //   for (auto& str : generator) {
-  //     str_datas[j] = str;
-  //     size = max(size, str.size());
-  //     j++;
-  //     if (j == k + m) {
-  //       for (int i = 0; i < k + m; i++) {
-  //         cout << "str_datas: " << str_datas[i] << endl;
-  //         datas[i] = str_datas[i].size() ? (uint8_t*)str_datas[i].data() : NULL;
-  //       }
-  //       mln_rs_result_t* dres = mln_rs_decode(datas, size, k, m);
-  //       if (dres == NULL) {
-  //         throw runtime_error("decode error");
-  //       }
-  //       string res;
-  //       for (int i = 0; i < k; i++) {
-  //         auto str = string((char*)mln_rs_result_get_data_by_index(dres, i));
-  //         res.append(str);
-  //       }
-  //       res.resize(b);
-  //       yield(res);
-  //       mln_rs_result_free(dres);
-  //       res.clear();
-  //       j = 0;
-  //     }
-  //   }
-  // }
-  // void RSStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {}
+
   bool RSStorageType::check(int success) const { return success > k; }
 
   std::vector<std::string> REStorageType::encode(const std::string& data) const {
@@ -169,11 +119,12 @@ namespace spkdfs {
   }
 
   std::string REStorageType::to_string() const {
-    return "RE<" + std::to_string(replications) + ">";
+    return "RE<" + std::to_string(replications) + "," + std::to_string(b) + ">";
   }
   void REStorageType::to_json(json& j) const {
     j["type"] = "RE";
     j["replications"] = replications;
+    j["b"] = b;
   }
 
   void REStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {

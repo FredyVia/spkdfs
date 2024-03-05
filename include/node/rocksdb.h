@@ -7,6 +7,7 @@
 #include "common/inode.h"
 #include "rocksdb/db.h"
 #include "rocksdb/utilities/backup_engine.h"
+#include "service.pb.h"
 namespace spkdfs {
 
   class PathLocks {

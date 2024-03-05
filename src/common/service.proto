@@ -2,13 +2,26 @@ syntax="proto3";
 package spkdfs;
 option cc_generic_services = true;
 
+enum ERROR_CODE {
+  UNKNOWN_EXCEPTION = 0;
+  PATH_EXISTS_EXCEPTION = 1;
+  PATH_NOT_EXISTS_EXCEPTION = 2;
+  COMMON_EXCEPTION = 3;
+};
+// 定义一个错误消息
+message ErrorMessage {
+  ERROR_CODE code = 1;  // 错误码
+  string message = 2;  // 错误描述信息
+};
+
 message Request {
 };
 
 message Response {
   bool success = 1;
-  string fail_info = 2;
+  ErrorMessage fail_info = 2;
   string redirect = 3;
+// int fail_code = 4;
 };
 
 message CommonResponse {

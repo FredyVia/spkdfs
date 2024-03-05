@@ -8,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "common/exception.h"
 #include "node/config.h"
 namespace spkdfs {
   using namespace std;
@@ -44,9 +45,9 @@ namespace spkdfs {
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
-
       response->mutable_common()->set_success(false);
-      *(response->mutable_common()->mutable_fail_info()) = e.what();
+      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
   }
 
@@ -85,9 +86,9 @@ namespace spkdfs {
       response->mutable_common()->set_success(true);
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
-
       response->mutable_common()->set_success(false);
-      *(response->mutable_common()->mutable_fail_info()) = e.what();
+      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
   }
 
@@ -108,14 +109,21 @@ namespace spkdfs {
   void DatanodeServiceImpl::get_datanodes(::google::protobuf::RpcController* controller,
                                           const Request* request, DNGetDatanodesResponse* response,
                                           ::google::protobuf::Closure* done) {
-    brpc::ClosureGuard done_guard(done);
-    LOG(INFO) << "get_datanodes_call";
-    auto nodes = dn_raft_ptr->get_datanodes();
-    LOG(INFO) << to_string(nodes);
-    for (const auto& node : nodes) {
-      std::string node_str = to_string(node);
-      response->add_nodes(node_str);
+    try {
+      brpc::ClosureGuard done_guard(done);
+      LOG(INFO) << "get_datanodes_call";
+      auto nodes = dn_raft_ptr->get_datanodes();
+      LOG(INFO) << to_string(nodes);
+      for (const auto& node : nodes) {
+        std::string node_str = to_string(node);
+        response->add_nodes(node_str);
+      }
+      response->mutable_common()->set_success(true);
+    } catch (const std::exception& e) {
+      LOG(ERROR) << e.what();
+      response->mutable_common()->set_success(false);
+      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
-    response->mutable_common()->set_success(true);
   }
 }  // namespace spkdfs

@@ -4,7 +4,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
-#include "common/inode.h"
+#include "common/exception.h"
 #include "common/utils.h"
 
 namespace spkdfs {
@@ -18,7 +18,7 @@ namespace spkdfs {
       throw runtime_error("brpc not success: " + cntl.ErrorText());
     }
     if (!response.common().success()) {
-      throw runtime_error(response.common().fail_info());
+      throw MessageException(response.common().fail_info());
     }
   }
 
@@ -32,14 +32,7 @@ namespace spkdfs {
     Request request;
     DNGetNamenodesResponse dn_getnamenodes_resp;
     dn_stub_ptr->get_namenodes(&cntl, &request, &dn_getnamenodes_resp, NULL);
-
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      throw runtime_error("rpc get_namenodes failed");
-    }
-    if (!dn_getnamenodes_resp.common().success()) {
-      throw runtime_error(dn_getnamenodes_resp.common().fail_info());
-    }
+    check_response(cntl, dn_getnamenodes_resp);
     cout << "namenodes: ";
     for (auto node : dn_getnamenodes_resp.nodes()) {
       cout << node << ", ";
@@ -56,13 +49,7 @@ namespace spkdfs {
     cntl.Reset();
     nn_stub.get_master(&cntl, &request, &nn_getmaster_resp, NULL);
 
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      throw runtime_error("rpc get_master failed");
-    }
-    if (!nn_getmaster_resp.common().success()) {
-      throw runtime_error(nn_getmaster_resp.common().fail_info());
-    }
+    check_response(cntl, nn_getmaster_resp);
     cout << "namenode master: " << nn_getmaster_resp.node() << endl;
     string namenode_master = nn_getmaster_resp.node();
 
@@ -76,36 +63,19 @@ namespace spkdfs {
     if (nn_master_stub_ptr != nullptr) delete nn_master_stub_ptr;
     if (dn_stub_ptr != nullptr) delete dn_stub_ptr;
   }
-  vector<std::string> SDK::ls(const std::string &dst) {
+
+  Inode SDK::ls(const std::string &dst) {
     Controller cntl;
     NNPathRequest request;
     NNLsResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->ls(&cntl, &request, &response, NULL);
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      throw runtime_error("RPC failed: " + cntl.ErrorText());
-    }
-    if (!response.common().success()) {
-      cerr << "failed" << response.common().fail_info() << endl;
-      throw runtime_error(response.common().fail_info());
-    }
+    check_response(cntl, response);
+
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
-    vector<string> res;
-    if (inode.is_directory) {
-      for (auto sub : inode.sub) {
-        // cout << sub << endl;
-        res.push_back(sub);
-      }
-    } else {
-      res.push_back(inode.fullpath);
-      // cout << inode.fullpath << " " << inode.filesize << " "
-      //      << (inode.storage_type_ptr == nullptr ? "UNKNOWN" :
-      //      inode.storage_type_ptr->to_string())
-      //      << endl;
-    }
-    return res;
+
+    return inode;
   }
 
   void SDK::mkdir(const string &dst) {
@@ -114,14 +84,8 @@ namespace spkdfs {
     CommonResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->mkdir(&cntl, &request, &response, NULL);
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      throw runtime_error("RPC failed: " + cntl.ErrorText());
-    }
-    if (!response.common().success()) {
-      cerr << "failed" << response.common().fail_info() << endl;
-      throw runtime_error(response.common().fail_info());
-    }
+    check_response(cntl, response);
+
     cout << "success" << endl;
   }
 
@@ -223,12 +187,8 @@ namespace spkdfs {
     CommonResponse response;
     cntl.Reset();
     nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
-    if (cntl.Failed()) {
-      throw runtime_error("brpc not success");
-    }
-    if (!response.common().success()) {
-      throw runtime_error(response.common().fail_info());
-    }
+    check_response(cntl, response);
+
     cout << "put ok" << endl;
   }
 
@@ -289,14 +249,8 @@ namespace spkdfs {
     CommonResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->rm(&cntl, &request, &response, NULL);
-    if (cntl.Failed()) {
-      cerr << "RPC failed: " << cntl.ErrorText();
-      throw runtime_error("RPC failed: " + cntl.ErrorText());
-    }
-    if (!response.common().success()) {
-      cerr << "failed" << response.common().fail_info() << endl;
-      throw runtime_error(response.common().fail_info());
-    }
+    check_response(cntl, response);
+
     cout << "success" << endl;
   }
 }  // namespace spkdfs

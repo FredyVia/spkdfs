@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include "common/inode.h"
 #include "common/node.h"
 #include "service.pb.h"
 
@@ -22,7 +23,7 @@ namespace spkdfs {
     ~SDK();
     void mkdir(const std::string& dst);
     void rm(const std::string& dst);
-    std::vector<std::string> ls(const std::string& dst);
+    Inode ls(const std::string& dst);
     void put(const std::string& src, const std::string& dst, const std::string& storage_type,
              unsigned int blocksize);
     void get(const std::string& src, const std::string& dst);

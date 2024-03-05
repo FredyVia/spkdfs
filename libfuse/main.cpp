@@ -32,6 +32,7 @@
 #include <regex>
 #include <sstream>
 
+#include "common/service.h"
 /*
  * Command line options
  *
@@ -44,6 +45,8 @@
 #include <vector>
 
 #include "client/sdk.h"
+#include "common/exception.h"
+#include "service.pb.h"
 using namespace spkdfs;
 using namespace std;
 class FUSE {
@@ -98,32 +101,41 @@ public:
     init();
   }
   void mkdir(const string &dst) {
+    cout << "libfuse mkdir :" << dst << endl;
     try {
       sdk->mkdir(dst);
+    } catch (const spkdfs::MessageException &e) {
+      return;
     } catch (const exception &e) {
       cout << e.what() << endl;
       reinit();
-      mkdir(dst);
     }
+    mkdir(dst);
   };
   void rm(const std::string &dst) {
+    cout << "libfuse rm :" << dst << endl;
     try {
       sdk->rm(dst);
     } catch (const exception &e) {
+      cout << dst << endl;
       cout << e.what() << endl;
       reinit();
-      rm(dst);
     }
+    rm(dst);
   }
-  vector<std::string> ls(const std::string &dst) {
+  Inode ls(const std::string &dst) {
+    cout << "libfuse ls :" << dst << endl;
     try {
       return sdk->ls(dst);
+    } catch (const spkdfs::MessageException &e) {
+      cout << to_string(e.errorMessage()) << endl;
+      throw e;
     } catch (const exception &e) {
+      cout << dst << endl;
       cout << e.what() << endl;
       reinit();
-      return ls(dst);
     }
-    return {};
+    return ls(dst);
   }
   // void put(const std::string &src, const std::string &dst, const std::string &storage_type,
   //          unsigned int blocksize);
@@ -147,31 +159,39 @@ static void *spkdfs_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
   return NULL;
 }
 
-// static int spkdfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
-//   (void)fi;
-//   int res = 0;
-
-//   memset(stbuf, 0, sizeof(struct stat));
-//   if (strcmp(path, "/") == 0) {
-//     stbuf->st_mode = S_IFDIR | 0755;
-//     stbuf->st_nlink = 2;
-//   } else if (strcmp(path + 1, options.filename) == 0) {
-//     stbuf->st_mode = S_IFREG | 0444;
-//     stbuf->st_nlink = 1;
-//     stbuf->st_size = strlen(options.contents);
-//   } else
-//     res = -ENOENT;
-
-//   return res;
-// }
+static int spkdfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
+  (void)fi;
+  cout << "spkdfs_getattr: " << path << endl;
+  try {
+    Inode inode = fuse_ptr->ls(path);
+    memset(stbuf, 0, sizeof(struct stat));
+    if (inode.is_directory) {
+      stbuf->st_mode = S_IFDIR | 0755;
+      stbuf->st_nlink = 2;
+    } else {
+      stbuf->st_mode = S_IFREG | 0444;
+      stbuf->st_nlink = 1;
+      stbuf->st_size = inode.filesize;
+    }
+  } catch (const MessageException &e) {
+    return -ENOENT;
+  }
+  return 0;
+}
 
 static int spkdfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                           struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
   filler(buf, ".", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
   filler(buf, "..", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
   // filler(buf, options.filename, NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
-  for (auto &f : fuse_ptr->ls(path)) {
-    filler(buf, f.c_str(), NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
+  Inode inode = fuse_ptr->ls(path);
+  if (!inode.is_directory) {
+    cout << "not directory" << endl;
+    throw runtime_error("not directory error");
+  }
+  for (auto str : inode.sub) {
+    if (str.back() == '/') str.pop_back();
+    filler(buf, str.c_str(), NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
   }
   return 0;
 }
@@ -205,7 +225,7 @@ static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
 }
 
 static const struct fuse_operations spkdfs_oper = {
-    // .getattr = spkdfs_getattr,  // 316
+    .getattr = spkdfs_getattr,  // 316
     .open = spkdfs_open,        // 441
     .read = spkdfs_read,        // 452
     .readdir = spkdfs_readdir,  // 561
@@ -246,6 +266,5 @@ int main(int argc, char *argv[]) {
   fuse_ptr = new FUSE(options.ips);
   ret = fuse_main(args.argc, args.argv, &spkdfs_oper, NULL);
   fuse_opt_free_args(&args);
-  cout << "test " << endl;
   return ret;
 }

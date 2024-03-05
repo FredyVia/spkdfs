@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
+#include "common/exception.h"
 #include "common/inode.h"
 #include "common/utils.h"
 namespace spkdfs {
@@ -114,7 +115,7 @@ namespace spkdfs {
 
   void RocksDB::try_to_rm(const Inode& inode) const {
     if (false == path_exists(inode.fullpath)) {
-      throw runtime_error("path not exists");
+      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
     }
   }
 
@@ -123,10 +124,10 @@ namespace spkdfs {
     string parent_path = inode.parent_path();
     DLOG(INFO) << "parent_path: " << parent_path;
     if (false == path_exists(parent_path)) {
-      throw runtime_error("parent path not exists");
+      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, parent_path);
     }
     if (true == path_exists(inode.fullpath)) {
-      throw runtime_error("path already exists");
+      throw MessageException(PATH_EXISTS_EXCEPTION, inode.fullpath);
     }
   }
 
@@ -152,7 +153,7 @@ namespace spkdfs {
     s = get(inode.fullpath, value);
     LOG(INFO) << "ls: inode.value(): " << value;
     if (s.IsNotFound() && inode.fullpath != "/") {
-      throw runtime_error("path not exist");
+      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
     }
     if (s.ok()) {
       auto _json = json::parse(value);
@@ -177,7 +178,7 @@ namespace spkdfs {
     s = get(inode.fullpath, value);
     LOG(INFO) << "get: inode.value(): " << value;
     if (s.IsNotFound() && inode.fullpath != "/") {
-      throw runtime_error("path not exist");
+      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
     }
     if (s.ok()) {
       auto _json = json::parse(value);
@@ -228,12 +229,13 @@ namespace spkdfs {
 
     Inode parent_inode = get_parent_inode(inode);
     parent_inode.sub.erase(inode.filename());
+    parent_inode.sub.erase(inode.filename() + "/");
     rocksdb::WriteBatch batch;
     batch.Put(parent_inode.fullpath, parent_inode.value());
     batch.Put(inode.fullpath, inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
-    pathLocks.unlock(inode.parent_path());
     pathLocks.unlock(inode.key());
+    pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
       throw runtime_error("batch write not ok");
     }
@@ -285,8 +287,8 @@ namespace spkdfs {
     batch.Put(parent_inode.fullpath, parent_inode.value());
     batch.Put(db_inode.fullpath, db_inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
-    pathLocks.unlock(inode.parent_path());
     pathLocks.unlock(inode.key());
+    pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
       throw runtime_error("batch write not ok");
     }
@@ -310,7 +312,7 @@ namespace spkdfs {
     pathLocks.lock(inode.parent_path());
     pathLocks.lock(inode.key());
     auto parent_inode = get_parent_inode(inode);
-    parent_inode.sub.insert(inode.filename());
+    parent_inode.sub.insert(inode.filename() + "/");
     LOG(INFO) << "parent_inode:" << parent_inode.value();
     LOG(INFO) << "curr_inode: " << inode.value();
     rocksdb::WriteBatch batch;

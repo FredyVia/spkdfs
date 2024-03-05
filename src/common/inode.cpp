@@ -21,7 +21,7 @@ namespace spkdfs {
         return std::make_shared<REStorageType>(replications);
       }
     }
-    throw runtime_error("cannot decode" + input);
+    throw runtime_error("cannot decode");
     return nullptr;
   }
 

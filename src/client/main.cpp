@@ -30,8 +30,15 @@ int main(int argc, char* argv[]) {
   } else if (FLAGS_command == "get") {
     sdk.get(argv[1], argv[2]);
   } else if (FLAGS_command == "ls") {
-    for (auto& str : sdk.ls(argv[1])) {
-      cout << str << endl;
+    Inode inode = sdk.ls(argv[1]);
+    if (inode.is_directory) {
+      for (auto sub : inode.sub) {
+        cout << sub << endl;
+      }
+    } else {
+      cout << inode.fullpath << " " << inode.filesize << " "
+           << (inode.storage_type_ptr == nullptr ? "UNKNOWN" : inode.storage_type_ptr->to_string())
+           << endl;
     }
   } else if (FLAGS_command == "mkdir") {
     sdk.mkdir(argv[1]);

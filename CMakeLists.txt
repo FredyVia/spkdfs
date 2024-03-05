@@ -28,7 +28,7 @@ find_package(unofficial-brpc CONFIG REQUIRED)
 
 find_package(nlohmann_json CONFIG REQUIRED)
 
-find_package(Protobuf REQUIRED)
+find_package(protobuf CONFIG REQUIRED)
 
 find_package(glog CONFIG REQUIRED)
 

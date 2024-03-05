@@ -74,7 +74,6 @@ service NamenodeService {
   rpc ls(NNPathRequest) returns (NNLsResponse);
   rpc mkdir(NNPathRequest) returns (CommonResponse);
   rpc rm(NNPathRequest) returns (CommonResponse);
-  rpc get(NNPathRequest) returns (NNGetResponse);
   rpc put(NNPutRequest) returns (NNPutResponse);
   // datanode notice namenode blk storeed ok;
   rpc put_ok(NNPutOKRequest) returns (CommonResponse);

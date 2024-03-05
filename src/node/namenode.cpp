@@ -53,6 +53,7 @@ namespace spkdfs {
       fail_response(response, e);
     }
   };
+
   void NamenodeServiceImpl::mkdir(::google::protobuf::RpcController* controller,
                                   const NNPathRequest* request, CommonResponse* response,
                                   ::google::protobuf::Closure* done) {
@@ -132,31 +133,6 @@ namespace spkdfs {
       task.done = nullptr;
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
-    } catch (const MessageException& e) {
-      fail_response(response, e);
-    } catch (const std::exception& e) {
-      fail_response(response, e);
-    }
-  };
-
-  void NamenodeServiceImpl::get(::google::protobuf::RpcController* controller,
-                                const NNPathRequest* request, NNGetResponse* response,
-                                ::google::protobuf::Closure* done) {
-    brpc::ClosureGuard done_guard(done);
-    try {
-      LOG(INFO) << "rpc: get";
-      if (request->path().empty()) {
-        throw runtime_error("parameter path required");
-      }
-      Inode inode;
-      inode.fullpath = request->path();
-      nn_raft_ptr->get(inode);
-      for (const auto& name : inode.sub) {
-        response->add_blkids(name);
-      }
-      *(response->mutable_storage_type()) = inode.storage_type_ptr->to_string();
-      response->mutable_common()->set_success(true);
-      response->set_filesize(inode.filesize);
     } catch (const MessageException& e) {
       fail_response(response, e);
     } catch (const std::exception& e) {

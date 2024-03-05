@@ -33,7 +33,6 @@ namespace spkdfs {
     RaftDN* dn_raft_ptr;
     // Node namenode_master;
     brpc::Channel channel;
-    std::unique_ptr<NamenodeService_Stub> stub_ptr;
   };
 
 }  // namespace spkdfs

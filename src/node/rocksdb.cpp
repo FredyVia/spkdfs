@@ -75,6 +75,7 @@ namespace spkdfs {
     LOG_IF(ERROR, !s.ok()) << s.ToString();
     assert(s.ok());
   }
+
   void RocksDB::close() {
     if (db_ptr != nullptr) {
       LOG(WARNING) << "db_ptr not NULL";
@@ -82,13 +83,16 @@ namespace spkdfs {
       db_ptr = nullptr;
     }
   }
+
   RocksDB::~RocksDB() { close(); }
+
   rocksdb::Status RocksDB::put(const std::string& key, const std::string& value) {
     // private not check
     // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
 
     return db_ptr->Put(rocksdb::WriteOptions(), key, value);
   }
+
   rocksdb::Status RocksDB::get(const std::string& key, std::string& value) const {
     // private not check
     // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
@@ -145,6 +149,7 @@ namespace spkdfs {
   //   return db_ptr->multiGet(rocksdb::ReadOptions(), key, &value);
   // }
   // std::vector<Inode>
+
   void RocksDB::ls(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     Status s;
@@ -155,14 +160,15 @@ namespace spkdfs {
     if (s.IsNotFound() && inode.fullpath != "/") {
       throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
     }
-    if (s.ok()) {
-      auto _json = json::parse(value);
-      Inode tmpInode = _json.get<Inode>();
-      if (tmpInode.valid == false) {
-        throw runtime_error("not valid");
-      }
-      inode = tmpInode;
+    if (!s.ok()) {
+      throw runtime_error(s.ToString());
     }
+    auto _json = json::parse(value);
+    Inode tmpInode = _json.get<Inode>();
+    if (tmpInode.valid == false) {
+      throw runtime_error("not valid");
+    }
+    inode = tmpInode;
     // vector<Inode> res;
     // for (const auto& name : tmpInode.sub) {
 
@@ -172,26 +178,12 @@ namespace spkdfs {
 
   void RocksDB::get(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-    Status s;
-    string value;
-    LOG(INFO) << "get: inode.fullpath: " << inode.fullpath;
-    s = get(inode.fullpath, value);
-    LOG(INFO) << "get: inode.value(): " << value;
-    if (s.IsNotFound() && inode.fullpath != "/") {
-      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
-    }
-    if (s.ok()) {
-      auto _json = json::parse(value);
-      Inode tmpInode = _json.get<Inode>();
-      if (tmpInode.valid == false) {
-        throw runtime_error("not valid");
-      }
-      if (tmpInode.is_directory == true) {
-        throw runtime_error("cannot get directory");
-      }
-      inode = tmpInode;
+    ls(inode);
+    if (inode.is_directory == true) {
+      throw runtime_error("cannot get directory");
     }
   }
+
   void RocksDB::prepare_mkdir(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     try_to_add(inode);
@@ -202,6 +194,7 @@ namespace spkdfs {
     inode.valid = true;
     inode.building = false;
   }
+
   void RocksDB::prepare_put(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     try_to_add(inode);
@@ -237,7 +230,7 @@ namespace spkdfs {
     pathLocks.unlock(inode.key());
     pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
-      throw runtime_error("batch write not ok");
+      throw runtime_error("batch write not ok!" + s.ToString());
     }
   }
 
@@ -260,7 +253,7 @@ namespace spkdfs {
       auto _json = json::parse(value);
       parent_inode = _json.get<Inode>();
     } else {
-      throw runtime_error("parent add sub, internal get not ok");
+      throw runtime_error("parent add sub, internal get not ok" + s.ToString());
     }
     return parent_inode;
   }
@@ -274,7 +267,7 @@ namespace spkdfs {
     parent_inode.sub.insert(inode.filename());
     s = get(inode.fullpath, value);
     if (!s.ok()) {
-      throw runtime_error("internal get not ok");
+      throw runtime_error("internal get not ok" + s.ToString());
     }
     auto _json = json::parse(value);
     Inode db_inode = _json.get<Inode>();
@@ -290,7 +283,7 @@ namespace spkdfs {
     pathLocks.unlock(inode.key());
     pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
-      throw runtime_error("batch write not ok");
+      throw runtime_error("batch write not ok" + s.ToString());
     }
   }
 
@@ -301,7 +294,7 @@ namespace spkdfs {
     Status s = put(inode.fullpath, inode.value());
     pathLocks.unlock(inode.key());
     if (!s.ok()) {
-      throw runtime_error("internal put not ok");
+      throw runtime_error("internal put not ok" + s.ToString());
     }
   }
 
@@ -322,7 +315,7 @@ namespace spkdfs {
     pathLocks.unlock(inode.key());
     pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
-      throw runtime_error("batch write not ok");
+      throw runtime_error("batch write not ok" + s.ToString());
     }
   };
 

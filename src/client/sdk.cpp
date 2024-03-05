@@ -210,35 +210,30 @@ namespace spkdfs {
   }
 
   void SDK::get(const string &src, const string &dst) {
-    brpc::Controller cntl;
-    NNPathRequest request;
-    NNGetResponse nnget_resp;
-    *(request.mutable_path()) = src;
-    nn_master_stub_ptr->get(&cntl, &request, &nnget_resp, NULL);
-    check_response(cntl, nnget_resp);
-    cout << "using storage type: " << nnget_resp.storage_type() << endl;
-    uint64_t filesize = nnget_resp.filesize();
-    auto storage_type_ptr = StorageType::from_string(nnget_resp.storage_type());
+    Inode inode = ls(src);
+
+    cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
+    uint64_t filesize = inode.filesize;
     ofstream dstFile(dst, std::ios::out);
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file");
     }
+    vector<string> blkids(inode.sub.begin(), inode.sub.end());
 
     vector<string> datas;
-    datas.resize(storage_type_ptr->getDecodeBlocks());
+    datas.resize(inode.storage_type_ptr->getDecodeBlocks());
     int succ = 0;
-    for (int index = 0; index < nnget_resp.blkids_size(); index++) {
-      if (succ == storage_type_ptr->getDecodeBlocks()) {
-        auto str = storage_type_ptr->decode(datas);
-        // str.resize(storage_type_ptr);
+    for (int index = 0; index < blkids.size(); index++) {
+      if (succ == inode.storage_type_ptr->getDecodeBlocks()) {
+        auto str = inode.storage_type_ptr->decode(datas);
         dstFile << str;
-        while (index % storage_type_ptr->getBlocks() != 0) index++;
-        if (index >= nnget_resp.blkids_size()) {
+        while (index % inode.storage_type_ptr->getBlocks() != 0) index++;
+        if (index >= blkids.size()) {
           break;
         }
         succ = 0;
       }
-      string str = nnget_resp.blkids(index);
+      string str = blkids[index];
       stringstream ss(str);
       string _, node, blkid;
       getline(ss, _, '|');      // 提取第一个部分

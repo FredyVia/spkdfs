@@ -21,8 +21,6 @@ namespace spkdfs {
             CommonResponse* response, ::google::protobuf::Closure* done) override;
     void put(::google::protobuf::RpcController* controller, const NNPutRequest* request,
              NNPutResponse* response, ::google::protobuf::Closure* done) override;
-    void get(::google::protobuf::RpcController* controller, const NNPathRequest* request,
-             NNGetResponse* response, ::google::protobuf::Closure* done) override;
     void put_ok(::google::protobuf::RpcController* controller, const NNPutOKRequest* request,
                 CommonResponse* response, ::google::protobuf::Closure* done) override;
     void get_master(::google::protobuf::RpcController* controller, const Request* request,

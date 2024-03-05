@@ -216,6 +216,7 @@ static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
 static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
                        struct fuse_file_info *fi) {
   size_t len;
+
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
 
   // len = strlen(options.contents);

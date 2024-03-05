@@ -30,6 +30,7 @@ namespace spkdfs {
     virtual bool check(int success) const = 0;
     static std::shared_ptr<StorageType> from_string(const std::string& input);
     inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
+    virtual uint32_t getBlocks() = 0;
     virtual ~StorageType(){};
   };
   class RSStorageType : public StorageType {
@@ -43,6 +44,7 @@ namespace spkdfs {
     std::vector<std::string> encode(const std::string& data) const override;
     void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
     bool check(int success) const override;
+    inline virtual uint32_t getBlocks() { return k + m; }
   };
 
   class REStorageType : public StorageType {
@@ -55,18 +57,18 @@ namespace spkdfs {
     std::vector<std::string> encode(const std::string& data) const override;
     void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
     bool check(int success) const override;
+    inline virtual uint32_t getBlocks() { return replications; }
   };
 
   inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
     return storageType_ptr->to_string();
   }
+
   void from_json(const nlohmann::json& j, std::shared_ptr<StorageType>& ptr);
 
   // inline std::string to_json(std::unique_ptr<StorageType> storageType_ptr) {
   //   return storageType_ptr->to_json();
   // }
-  class Inode;
-  inline void to_json(nlohmann::json& j, const Inode& inode);
 
   class Inode {
   public:
@@ -78,47 +80,19 @@ namespace spkdfs {
     bool valid;
     bool building;
     inline std::string filename() const {
-      std::filesystem::path filepath(fullpath);
-      return filepath.filename().string();
+      return std::filesystem::path(fullpath).filename().string();
     }
     inline std::string parent_path() const {
-      std::filesystem::path filepath(fullpath);
-      return filepath.parent_path().string();
+      return std::filesystem::path(fullpath).parent_path().string();
     }
     inline std::string key() const { return fullpath; }
-    inline std::string value() const {
-      nlohmann::json j;
-      to_json(j, *this);
-      return j.dump();
-    }
+    std::string value() const;
   };
 
-  inline void to_json(nlohmann::json& j, const Inode& inode) {
-    j = nlohmann::json{{"fullpath", inode.fullpath}, {"is_directory", inode.is_directory},
-                       {"filesize", inode.filesize}, {"sub", inode.sub},
-                       {"valid", inode.valid},       {"building", inode.building}};
-    if (inode.storage_type_ptr != nullptr) {
-      nlohmann::json storage_json;
-      inode.storage_type_ptr->to_json(storage_json);  // 假设 to_json 返回一个 JSON 对象
-      j["storage_type"] = storage_json.dump();  // 转换为字符串并添加到 JSON 对象中
-    }
-  }
+  void to_json(nlohmann::json& j, const Inode& inode);
   // inline std::string to_string(const Inode& inode){
 
   // }
-  inline void from_json(const nlohmann::json& j, Inode& inode) {
-    inode.fullpath = j.at("fullpath").get<std::string>();
-    inode.is_directory = j.at("is_directory").get<bool>();
-    inode.filesize = j.at("filesize").get<int>();
-    inode.storage_type_ptr = nullptr;
-    if (j.find("storage_type") != j.end()) {
-      LOG(INFO) << j.at("storage_type");
-      auto storage_type_json = nlohmann::json::parse(j.at("storage_type").get<std::string>());
-      from_json(storage_type_json, inode.storage_type_ptr);
-    }
-    inode.sub = j.at("sub").get<std::set<std::string>>();
-    inode.valid = j.at("valid").get<bool>();
-    inode.building = j.at("building").get<bool>();
-  }
+  void from_json(const nlohmann::json& j, Inode& inode);
 }  // namespace spkdfs
 #endif

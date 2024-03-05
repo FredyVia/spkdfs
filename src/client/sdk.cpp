@@ -244,6 +244,7 @@ namespace spkdfs {
     dstFile.close();
     fs::resize_file(dst, filesize);
   }
+
   void SDK::rm(const std::string &dst) {
     Controller cntl;
     NNPathRequest request;
@@ -254,4 +255,12 @@ namespace spkdfs {
 
     cout << "success" << endl;
   }
+
+  std::string get_part(const std::string &path, uint32_t offset, uint32_t size) {
+    string res;
+    
+    return res;
+  }
+
+  void put_part(const std::string &path, uint32_t offset, uint32_t size) {}
 }  // namespace spkdfs

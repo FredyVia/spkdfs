@@ -26,5 +26,7 @@ namespace spkdfs {
     Inode ls(const std::string& dst);
     void put(const std::string& src, const std::string& dst, const std::string& storage_type);
     void get(const std::string& src, const std::string& dst);
+    std::string get_part(const std::string& path, uint32_t offset, uint32_t size);
+    void put_part(const std::string& path, uint32_t offset, uint32_t size);
   };
 };  // namespace spkdfs

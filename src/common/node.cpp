@@ -29,7 +29,7 @@ namespace spkdfs {
   void Node::scan() {
     brpc::Channel channel;
     // 初始化 channel
-    if (channel.Init(to_string(*this).c_str(), NULL) != 0) {
+    if (channel.Init(to_string().c_str(), NULL) != 0) {
       throw runtime_error("channel init failed");
     }
 
@@ -101,5 +101,34 @@ namespace spkdfs {
       LOG(INFO) << node;
       pretty_print(LOG(INFO), node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
     }
+  }
+
+  Node::Node(std::string ip, int port, NodeStatus nodeStatus)
+      : ip(ip), port(port), nodeStatus(nodeStatus) {
+    // warning: ipv6 not supported
+    from_string(ip, *this);
+  };
+
+  std::string Node::to_string() const { return spkdfs::to_string(*this); }
+
+  void from_string(const std::string& node_str, Node& node) {
+    std::istringstream iss(node_str);
+    std::getline(iss, node.ip, ':');
+    std::string portStr;
+    std::getline(iss, portStr);
+    node.port = portStr.empty() ? 0 : std::stoi(portStr);
+  };
+
+  std::string to_string(const spkdfs::Node& node) {
+    return node.ip + ":" + std::to_string(node.port);
+  };
+
+  void to_json(nlohmann::json& j, const Node& node) {
+    j = nlohmann::json{{"ip", node.ip}, {"port", node.port}};
+  }
+
+  void from_json(const nlohmann::json& j, Node& node) {
+    node.ip = j.at("ip").get<std::string>();
+    node.port = j.at("port").get<int>();
   }
 }  // namespace spkdfs

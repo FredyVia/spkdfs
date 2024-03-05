@@ -8,6 +8,7 @@
 namespace spkdfs {
   using json = nlohmann::json;
   using namespace std;
+
   std::shared_ptr<StorageType> StorageType::from_string(const std::string& input) {
     std::regex pattern("RS<(\\d+),(\\d+),(\\d+)>|RE<(\\d+),(\\d+)>");
     std::smatch match;
@@ -46,6 +47,7 @@ namespace spkdfs {
   std::string RSStorageType::to_string() const {
     return "RS<" + std::to_string(k) + "," + std::to_string(m) + "," + std::to_string(b) + ">";
   }
+
   void RSStorageType::to_json(json& j) const {
     j["type"] = "RS";
     j["k"] = k;
@@ -77,6 +79,7 @@ namespace spkdfs {
     liberasurecode_instance_destroy(instance);
     return res;
   }
+
   void RSStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {
     struct ec_args args = {.k = k, .m = m};
     int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
@@ -121,6 +124,7 @@ namespace spkdfs {
   std::string REStorageType::to_string() const {
     return "RE<" + std::to_string(replications) + "," + std::to_string(b) + ">";
   }
+
   void REStorageType::to_json(json& j) const {
     j["type"] = "RE";
     j["replications"] = replications;
@@ -140,4 +144,35 @@ namespace spkdfs {
   }
 
   bool REStorageType::check(int success) const { return success >= 1; }
+  std::string Inode::value() const {
+    nlohmann::json j;
+    to_json(j, *this);
+    return j.dump();
+  }
+
+  void to_json(nlohmann::json& j, const Inode& inode) {
+    j = nlohmann::json{{"fullpath", inode.fullpath}, {"is_directory", inode.is_directory},
+                       {"filesize", inode.filesize}, {"sub", inode.sub},
+                       {"valid", inode.valid},       {"building", inode.building}};
+    if (inode.storage_type_ptr != nullptr) {
+      nlohmann::json storage_json;
+      inode.storage_type_ptr->to_json(storage_json);  // 假设 to_json 返回一个 JSON 对象
+      j["storage_type"] = storage_json.dump();  // 转换为字符串并添加到 JSON 对象中
+    }
+  }
+
+  void from_json(const nlohmann::json& j, Inode& inode) {
+    inode.fullpath = j.at("fullpath").get<std::string>();
+    inode.is_directory = j.at("is_directory").get<bool>();
+    inode.filesize = j.at("filesize").get<int>();
+    inode.storage_type_ptr = nullptr;
+    if (j.find("storage_type") != j.end()) {
+      LOG(INFO) << j.at("storage_type");
+      auto storage_type_json = nlohmann::json::parse(j.at("storage_type").get<std::string>());
+      from_json(storage_type_json, inode.storage_type_ptr);
+    }
+    inode.sub = j.at("sub").get<std::set<std::string>>();
+    inode.valid = j.at("valid").get<bool>();
+    inode.building = j.at("building").get<bool>();
+  }
 }  // namespace spkdfs

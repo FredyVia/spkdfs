@@ -65,6 +65,7 @@ namespace spkdfs {
     int ret = liberasurecode_encode(instance, data.data(), data.size(), &encoded_data,
                                     &encoded_parity, &encoded_fragment_len);
     if (ret != 0) {
+      liberasurecode_instance_destroy(instance);
       throw runtime_error("encode error");
     }
     vector<string> res(k + m, string(encoded_fragment_len, ' '));
@@ -80,34 +81,29 @@ namespace spkdfs {
     return res;
   }
 
-  void RSStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {
+  std::string RSStorageType::decode(vector<std::string> vec) const {
+    assert(vec.size() >= k);
+    assert(vec.size() <= k + m);
     struct ec_args args = {.k = k, .m = m};
     int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
-    vector<string> str_datas(k + m);
-    int j = 0;
-    char* datas[k + m];
-    vector<int> missing_idxs;
-    for (const auto& str : generator) {
+    int len = 0;
+    char* datas[k];
+    for (auto& str : vec) {
       cout << "sha256sum: " << cal_sha256sum(str) << endl;
-      str_datas[j++] = str;
-      if (j == k + m) {
-        uint64_t len = 0, size = 0;
-        for (int i = 0; i < k + m; i++) {
-          if (str_datas[i].size()) {
-            size = max(size, str_datas[i].size());
-            datas[len++] = str_datas[i].data();
-          }
-        }
-        uint64_t out_data_len = 0;
-        char* out_data;
-        int ret = liberasurecode_decode(instance, datas, len, size, 0, &out_data, &out_data_len);
-        if (ret != 0) {
-          throw runtime_error("decode error");
-        }
-        yield(string(out_data, out_data_len));
-        j = 0;
+      datas[len++] = str.data();
+      if (len == k) {
+        break;
       }
     }
+    uint64_t out_data_len = 0;
+    char* out_data;
+    int ret
+        = liberasurecode_decode(instance, datas, len, vec[0].size(), 0, &out_data, &out_data_len);
+    if (ret != 0) {
+      liberasurecode_instance_destroy(instance);
+      throw runtime_error("decode error");
+    }
+    return string(out_data, out_data_len);
   }
 
   bool RSStorageType::check(int success) const { return success > k; }
@@ -130,18 +126,7 @@ namespace spkdfs {
     j["replications"] = replications;
     j["b"] = b;
   }
-
-  void REStorageType::decode(coro_t::push_type& yield, coro_t::pull_type& generator) const {
-    cout << "re decode" << endl;
-    int i = 0;
-    for (auto& str : generator) {
-      i++;
-      if (i == replications) {
-        yield(str);
-        i = 0;
-      }
-    }
-  }
+  std::string REStorageType::decode(std::vector<std::string> vec) const { return vec.front(); }
 
   bool REStorageType::check(int success) const { return success >= 1; }
   std::string Inode::value() const {

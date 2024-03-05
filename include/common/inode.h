@@ -3,7 +3,6 @@
 
 #include <glog/logging.h>
 
-#include <boost/coroutine2/all.hpp>
 #include <cassert>
 #include <filesystem>
 #include <fstream>
@@ -16,7 +15,6 @@
 #include <string>
 
 namespace spkdfs {
-  typedef boost::coroutines2::coroutine<std::string> coro_t;
   class StorageType {
   protected:
     uint32_t b;  // MB
@@ -26,11 +24,12 @@ namespace spkdfs {
     virtual std::string to_string() const = 0;
     virtual void to_json(nlohmann::json& j) const = 0;
     virtual std::vector<std::string> encode(const std::string& data) const = 0;
-    virtual void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const = 0;
+    virtual std::string decode(std::vector<std::string> vec) const = 0;
     virtual bool check(int success) const = 0;
     static std::shared_ptr<StorageType> from_string(const std::string& input);
     inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
     virtual uint32_t getBlocks() = 0;
+    virtual uint32_t getDecodeBlocks() = 0;
     virtual ~StorageType(){};
   };
   class RSStorageType : public StorageType {
@@ -42,9 +41,11 @@ namespace spkdfs {
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
-    void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
+    std::string decode(std::vector<std::string> vec) const override;
     bool check(int success) const override;
+    // inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
     inline virtual uint32_t getBlocks() { return k + m; }
+    virtual uint32_t getDecodeBlocks() { return k; }
   };
 
   class REStorageType : public StorageType {
@@ -55,9 +56,10 @@ namespace spkdfs {
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
-    void decode(coro_t::push_type& yield, coro_t::pull_type& generator) const override;
+    std::string decode(std::vector<std::string> vec) const override;
     bool check(int success) const override;
     inline virtual uint32_t getBlocks() { return replications; }
+    virtual uint32_t getDecodeBlocks() { return 1; }
   };
 
   inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {

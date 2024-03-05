@@ -122,8 +122,7 @@ namespace spkdfs {
     cout << "opening file " << srcFilePath << endl;
     ifstream file(srcFilePath, ios::binary | ios::ate);
     if (!file.is_open()) {
-      cerr << "Failed to open file\n";
-      return;
+      throw runtime_error("Failed to open file");
     }
 
     auto fileSize = file.tellg();
@@ -193,6 +192,23 @@ namespace spkdfs {
     cout << "put ok" << endl;
   }
 
+  std::string SDK::get_from_datanode(const std::string &datanode, const std::string &blkid) {
+    Channel dn_channel;
+    dn_channel.Init(datanode.c_str(), NULL);
+    DatanodeService_Stub dn_stub(&dn_channel);
+    DNGetRequest dnget_req;
+    DNGetResponse dnget_resp;
+    *(dnget_req.mutable_blkid()) = blkid;
+    brpc::Controller cntl;
+    dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
+    check_response(cntl, dnget_resp);
+    cout << datanode << " | " << blkid << " success" << endl;
+    string data = dnget_resp.data();
+    cout << "dnget_resp blk size: " << data.size() << endl;
+    assert(cal_sha256sum(data) == blkid);
+    return data;
+  }
+
   void SDK::get(const string &src, const string &dst) {
     brpc::Controller cntl;
     NNPathRequest request;
@@ -203,44 +219,38 @@ namespace spkdfs {
     cout << "using storage type: " << nnget_resp.storage_type() << endl;
     uint64_t filesize = nnget_resp.filesize();
     auto storage_type_ptr = StorageType::from_string(nnget_resp.storage_type());
-    auto generator = [&nnget_resp](coro_t::push_type &yield) {
-      for (auto &str : nnget_resp.blkids()) {
-        std::stringstream ss(str);
-        std::string _, node, blkid;
-        std::getline(ss, _, '|');      // 提取第一个部分
-        std::getline(ss, node, '|');   // 提取第二个部分
-        std::getline(ss, blkid, '|');  // 提取第三个部分
-        cout << _ << "|" << node << "|" << blkid << endl;
-        Channel dn_channel;
-        try {
-          dn_channel.Init(node.c_str(), NULL);
-          DatanodeService_Stub dn_stub(&dn_channel);
-          DNGetRequest dnget_req;
-          DNGetResponse dnget_resp;
-          *(dnget_req.mutable_blkid()) = blkid;
-          brpc::Controller cntl;
-          dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
-          check_response(cntl, dnget_resp);
-          cout << node << " | " << blkid << " success" << endl;
-          string data = dnget_resp.data();
-          cout << "dnget_resp blk size: " << data.size() << endl;
-          assert(cal_sha256sum(data) == blkid);
-          yield(data);
-        } catch (const exception &e) {
-          cout << node << " | " << blkid << " failed" << endl;
-          yield("");
-        }
-      };
-    };
-    auto func = [&storage_type_ptr, &generator](coro_t::push_type &yield) {
-      coro_t::pull_type seq(boost::coroutines2::fixedsize_stack(), generator);
-      storage_type_ptr->decode(yield, seq);
-    };
-    coro_t::pull_type seq(boost::coroutines2::fixedsize_stack(), func);
     ofstream dstFile(dst, std::ios::out);
-    for (auto data : seq) {
-      dstFile << data;
+    if (!dstFile.is_open()) {
+      throw runtime_error("Failed to open file");
     }
+
+    vector<string> datas;
+    datas.resize(storage_type_ptr->getDecodeBlocks());
+    int succ = 0;
+    for (int index = 0; index < nnget_resp.blkids_size(); index++) {
+      if (succ == storage_type_ptr->getDecodeBlocks()) {
+        auto str = storage_type_ptr->decode(datas);
+        // str.resize(storage_type_ptr);
+        dstFile << str;
+        while (index % storage_type_ptr->getBlocks() != 0) index++;
+        if (index >= nnget_resp.blkids_size()) {
+          break;
+        }
+        succ = 0;
+      }
+      string str = nnget_resp.blkids(index);
+      stringstream ss(str);
+      string _, node, blkid;
+      getline(ss, _, '|');      // 提取第一个部分
+      getline(ss, node, '|');   // 提取第二个部分
+      getline(ss, blkid, '|');  // 提取第三个部分
+      cout << _ << "|" << node << "|" << blkid << endl;
+      try {
+        datas[succ++] = get_from_datanode(node, blkid);
+      } catch (const exception &e) {
+        cout << node << " | " << blkid << " failed" << endl;
+      }
+    };
     dstFile.close();
     fs::resize_file(dst, filesize);
   }
@@ -258,7 +268,7 @@ namespace spkdfs {
 
   std::string get_part(const std::string &path, uint32_t offset, uint32_t size) {
     string res;
-    
+
     return res;
   }
 

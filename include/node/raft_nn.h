@@ -20,7 +20,6 @@ namespace spkdfs {
     braft::NodeOptions node_options;
     braft::Node* volatile raft_node;
 
-    // friend class boost::serialization::access;
   public:
     void change_peers(const std::vector<Node>& namenodes);
     RaftNN(const std::vector<Node>& nodes);

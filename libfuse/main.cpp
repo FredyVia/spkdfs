@@ -128,7 +128,7 @@ public:
     try {
       return sdk->ls(dst);
     } catch (const spkdfs::MessageException &e) {
-      cout << to_string(e.errorMessage()) << endl;
+      cout << e.what() << endl;
       throw e;
     } catch (const exception &e) {
       cout << dst << endl;

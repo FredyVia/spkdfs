@@ -5,21 +5,23 @@
 #include <sstream>
 #include <string>
 
+#include "common/service.h"
 #include "service.pb.h"
+
 namespace spkdfs {
   class MessageException : public std::exception {
-    enum ERROR_CODE code;
-    std::string info;
+    ErrorMessage errMsg;
+    std::string s;
 
   public:
-    MessageException(const ErrorMessage& e) : code(e.code()), info(e.message()) {}
-    MessageException(enum ERROR_CODE code, const std::string& info) : code(code), info(info) {}
-    ErrorMessage errorMessage() const {
-      ErrorMessage errMsg;
+    MessageException(const ErrorMessage& e) : errMsg(e) { s = spkdfs::to_string(e); }
+    MessageException(enum ERROR_CODE code, const std::string& info) {
       errMsg.set_code(code);
       errMsg.set_message(info);
-      return errMsg;
+      s = spkdfs::to_string(errMsg);
     }
+    inline ErrorMessage errorMessage() const { return errMsg; }
+    inline const char* what() const noexcept override { return s.c_str(); }
   };
 }  // namespace spkdfs
 #endif

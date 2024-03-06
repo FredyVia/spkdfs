@@ -25,6 +25,9 @@ namespace spkdfs {
     void rm(const std::string& dst);
     Inode ls(const std::string& dst);
     void put(const std::string& src, const std::string& dst, const std::string& storage_type);
+
+    template <typename Iter>
+    std::string decode_one(Iter begin, Iter end, std::shared_ptr<StorageType> storage_type_ptr);
     void get(const std::string& src, const std::string& dst);
     std::string get_from_datanode(const std::string& datanode, const std::string& blkid);
     std::string get_part(const std::string& path, uint32_t offset, uint32_t size);

@@ -157,8 +157,11 @@ namespace spkdfs {
     LOG(INFO) << "ls: inode.fullpath: " << inode.fullpath;
     s = get(inode.fullpath, value);
     LOG(INFO) << "ls: inode.value(): " << value;
-    if (s.IsNotFound() && inode.fullpath != "/") {
-      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
+    if (s.IsNotFound()) {
+      if (inode.fullpath == "/")
+        return;
+      else
+        throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
     }
     if (!s.ok()) {
       throw runtime_error(s.ToString());

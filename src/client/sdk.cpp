@@ -209,6 +209,32 @@ namespace spkdfs {
     return data;
   }
 
+  template <typename Iter>
+  string SDK::decode_one(Iter begin, Iter end, std::shared_ptr<StorageType> storage_type_ptr) {
+    int succ = 0;
+    vector<string> datas;
+    datas.resize(storage_type_ptr->getDecodeBlocks());
+    while (begin != end) {
+      string str = *begin;
+      stringstream ss(str);
+      string _, node, blkid;
+      getline(ss, _, '|');      // 提取第一个部分
+      getline(ss, node, '|');   // 提取第二个部分
+      getline(ss, blkid, '|');  // 提取第三个部分
+      cout << _ << "|" << node << "|" << blkid << endl;
+      try {
+        datas[succ++] = get_from_datanode(node, blkid);
+        if (succ == storage_type_ptr->getDecodeBlocks()) {
+          return storage_type_ptr->decode(datas);
+        }
+      } catch (const exception &e) {
+        cout << node << " | " << blkid << " failed" << endl;
+      }
+      begin++;
+    }
+    throw runtime_error("cannot decode one");
+  }
+
   void SDK::get(const string &src, const string &dst) {
     Inode inode = ls(src);
 
@@ -219,32 +245,11 @@ namespace spkdfs {
       throw runtime_error("Failed to open file");
     }
     vector<string> blkids(inode.sub.begin(), inode.sub.end());
-
-    vector<string> datas;
-    datas.resize(inode.storage_type_ptr->getDecodeBlocks());
     int succ = 0;
-    for (int index = 0; index < blkids.size(); index++) {
-      if (succ == inode.storage_type_ptr->getDecodeBlocks()) {
-        auto str = inode.storage_type_ptr->decode(datas);
-        dstFile << str;
-        while (index % inode.storage_type_ptr->getBlocks() != 0) index++;
-        if (index >= blkids.size()) {
-          break;
-        }
-        succ = 0;
-      }
-      string str = blkids[index];
-      stringstream ss(str);
-      string _, node, blkid;
-      getline(ss, _, '|');      // 提取第一个部分
-      getline(ss, node, '|');   // 提取第二个部分
-      getline(ss, blkid, '|');  // 提取第三个部分
-      cout << _ << "|" << node << "|" << blkid << endl;
-      try {
-        datas[succ++] = get_from_datanode(node, blkid);
-      } catch (const exception &e) {
-        cout << node << " | " << blkid << " failed" << endl;
-      }
+    for (int index = 0; index < blkids.size(); index += inode.storage_type_ptr->getBlocks()) {
+      dstFile << decode_one(blkids.begin() + index,
+                            blkids.begin() + index + inode.storage_type_ptr->getBlocks(),
+                            inode.storage_type_ptr);
     };
     dstFile.close();
     fs::resize_file(dst, filesize);

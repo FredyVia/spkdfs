@@ -81,6 +81,7 @@ namespace spkdfs {
     std::set<std::string> sub;  // sub directory for directory or blks for file
     bool valid;
     bool building;
+    // int modification_time;
     inline std::string filename() const {
       return std::filesystem::path(fullpath).filename().string();
     }
@@ -92,9 +93,7 @@ namespace spkdfs {
   };
 
   void to_json(nlohmann::json& j, const Inode& inode);
-  // inline std::string to_string(const Inode& inode){
 
-  // }
   void from_json(const nlohmann::json& j, Inode& inode);
 }  // namespace spkdfs
 #endif

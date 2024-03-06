@@ -24,7 +24,7 @@ namespace spkdfs {
     LOG(ERROR) << e.what();
     response->mutable_common()->set_success(false);
     ErrorMessage errMsg;
-    errMsg.set_code(UNKNOWN_EXCEPTION);
+    errMsg.set_code(COMMON_EXCEPTION);
     errMsg.set_message(e.what());
     *(response->mutable_common()->mutable_fail_info()) = errMsg;
   }

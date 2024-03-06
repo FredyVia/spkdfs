@@ -3,10 +3,10 @@ package spkdfs;
 option cc_generic_services = true;
 
 enum ERROR_CODE {
-  UNKNOWN_EXCEPTION = 0;
+  COMMON_EXCEPTION = 0;
   PATH_EXISTS_EXCEPTION = 1;
   PATH_NOT_EXISTS_EXCEPTION = 2;
-  COMMON_EXCEPTION = 3;
+  OUT_OF_RANGE_EXCEPTION = 3;
 };
 // 定义一个错误消息
 message ErrorMessage {

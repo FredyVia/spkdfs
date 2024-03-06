@@ -41,6 +41,7 @@
  * different values on the command line.
  */
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
@@ -52,22 +53,28 @@ using namespace std;
 class FUSE {
   SDK *sdk;
 
-  uint32_t _index = 0;
   vector<Node> nodes;
+
+  map<string, string> m;  // path ->
+  shared_mutex mapMutex;
 
 public:
   FUSE(const string &ips) {
     nodes = parse_nodes(ips);
     init();
   };
+
   ~FUSE() { deinit(); }
+
   void deinit() {
     if (sdk != nullptr) {
       delete sdk;
       sdk = nullptr;
     }
   }
+
   void init_node(const Node &node) { sdk = new SDK(to_string(node)); }
+
   void init() {
     vector<Node> sub;
     sub.reserve(3);
@@ -136,6 +143,9 @@ public:
       reinit();
     }
     return ls(dst);
+  }
+  string read(const string &path, uint32_t offset, uint32_t size) {
+    return sdk->read_data(path, offset, size);
   }
   // void put(const std::string &src, const std::string &dst, const std::string &storage_type,
   //          unsigned int blocksize);
@@ -213,10 +223,16 @@ static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
   return 0;
 }
 
-static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
+static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
                        struct fuse_file_info *fi) {
   size_t len;
-
+  try {
+    string s = fuse_ptr->read(path, offset, size);
+    memcpy(buff, s.data(), size);
+    return size;
+  } catch (const exception &e) {
+    return -ENOENT;
+  }
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
 
   // len = strlen(options.contents);
@@ -225,8 +241,6 @@ static int spkdfs_read(const char *path, char *buf, size_t size, off_t offset,
   //   memcpy(buf, options.contents + offset, size);
   // } else
   //   size = 0;
-
-  return size;
 }
 static int spkdfs_write(const char *, const char *, size_t size, off_t offset,
                         struct fuse_file_info *) {

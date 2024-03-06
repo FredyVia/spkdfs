@@ -98,3 +98,11 @@ TEST(ClientTest, concurrency) {
   //   t.join();
   // }
 }
+TEST(CommonTest, alignup) {
+  vector<vector<int>> checks = {{2, 5, 0, 1}, {4, 5, 0, 1}, {5, 5, 1, 1}, {6, 5, 1, 2},
+                                {1, 2, 0, 1}, {2, 2, 1, 1}, {4, 2, 2, 2}, {5, 2, 2, 3}};
+  for (auto& vec : checks) {
+    EXPECT_EQ(align_index_down(vec[0], vec[1]), vec[2]);
+    EXPECT_EQ(align_index_up(vec[0], vec[1]), vec[3]);
+  }
+}

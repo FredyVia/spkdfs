@@ -59,12 +59,13 @@ namespace spkdfs {
     nn_master_stub_ptr = new NamenodeService_Stub(&nn_master_channel);
     cout << endl;
   }
+
   SDK::~SDK() {
     if (nn_master_stub_ptr != nullptr) delete nn_master_stub_ptr;
     if (dn_stub_ptr != nullptr) delete dn_stub_ptr;
   }
 
-  Inode SDK::ls(const std::string &dst) {
+  Inode SDK::get_inode(const std::string &dst) {
     Controller cntl;
     NNPathRequest request;
     NNLsResponse response;
@@ -77,6 +78,8 @@ namespace spkdfs {
 
     return inode;
   }
+
+  Inode SDK::ls(const std::string &path) { return get_inode(path); }
 
   void SDK::mkdir(const string &dst) {
     Controller cntl;
@@ -235,24 +238,22 @@ namespace spkdfs {
     throw runtime_error("cannot decode one");
   }
 
-  void SDK::get(const string &src, const string &dst) {
-    Inode inode = ls(src);
+  void SDK::get(const std::string &src, const std::string &dst) {
+    Inode inode = get_inode(src);
 
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-    uint64_t filesize = inode.filesize;
     ofstream dstFile(dst, std::ios::out);
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file");
     }
     vector<string> blkids(inode.sub.begin(), inode.sub.end());
-    int succ = 0;
-    for (int index = 0; index < blkids.size(); index += inode.storage_type_ptr->getBlocks()) {
-      dstFile << decode_one(blkids.begin() + index,
-                            blkids.begin() + index + inode.storage_type_ptr->getBlocks(),
+    for (int start = 0; start < blkids.size(); start += inode.storage_type_ptr->getBlocks()) {
+      dstFile << decode_one(blkids.begin() + start,
+                            blkids.begin() + start + inode.storage_type_ptr->getBlocks(),
                             inode.storage_type_ptr);
     };
     dstFile.close();
-    fs::resize_file(dst, filesize);
+    fs::resize_file(dst, inode.filesize);
   }
 
   void SDK::rm(const std::string &dst) {
@@ -266,11 +267,59 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
-  std::string get_part(const std::string &path, uint32_t offset, uint32_t size) {
-    string res;
-
-    return res;
+  inline pair<int, int> SDK::get_index(const Inode &inode, uint32_t offset, uint32_t size) {
+    return make_pair(align_index_down(offset, inode.storage_type_ptr->getBlockSize()),
+                     align_index_up(offset + size, inode.storage_type_ptr->getBlockSize()));
   }
+
+  std::string SDK::get_tmp_path(Inode inode) {
+    string dst_path = "/tmp/spkdfs/fuse/" + cal_sha256sum(inode.fullpath);
+    createDirectoryIfNotExist(dst_path);
+    return dst_path;
+  }
+
+  std::string SDK::read_data(const Inode &inode, pair<int, int> indexs) {
+    string dst_path = get_tmp_path(inode);
+    cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
+    vector<string> blkids(inode.sub.begin(), inode.sub.end());
+    std::ostringstream oss;
+    for (int index = indexs.first; index < indexs.second; index++) {
+      ofstream dstFile(dst_path + "/" + std::to_string(index), std::ios::out);
+      if (!dstFile.is_open()) {
+        throw runtime_error("Failed to open file");
+      }
+      string s = decode_one(blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
+                            blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks(),
+                            inode.storage_type_ptr);
+      dstFile << s;
+      dstFile.close();
+      oss << s;
+    };
+    return oss.str();
+  }
+
+  std::string SDK::read_data(const string &path, uint32_t offset, uint32_t size) {
+    string res;
+    Inode inode = get_inode(path);
+    pair<int, int> indexs = get_index(inode, offset, size);
+    auto s = read_data(inode, indexs);
+    return string(
+        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize(),
+        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize() + size);
+  }
+
+  // std::string SDK::get_one_data(const Inode &inode, int index) {
+  //   string res;
+  //   cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
+  //   int succ = 0;
+  //   auto iter = inode.sub.begin();
+  //   for (int i = 0; i < index * inode.storage_type_ptr->getBlocks(); i++) {
+  //     iter++;
+  //   }
+  //   //  for (int index = offset / inode.storage_type_ptr->getBlockSize(); index < blkids.size();
+  //   //              index += inode.storage_type_ptr->getBlocks()) {
+  //   return decode_one(iter, inode.sub.end(), inode.storage_type_ptr);
+  // }
 
   void put_part(const std::string &path, uint32_t offset, uint32_t size) {}
 }  // namespace spkdfs

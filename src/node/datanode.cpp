@@ -46,7 +46,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
-      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      response->mutable_common()->mutable_fail_info()->set_code(COMMON_EXCEPTION);
       *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
   }
@@ -87,7 +87,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
-      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      response->mutable_common()->mutable_fail_info()->set_code(COMMON_EXCEPTION);
       *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
   }
@@ -122,7 +122,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       LOG(ERROR) << e.what();
       response->mutable_common()->set_success(false);
-      response->mutable_common()->mutable_fail_info()->set_code(UNKNOWN_EXCEPTION);
+      response->mutable_common()->mutable_fail_info()->set_code(COMMON_EXCEPTION);
       *(response->mutable_common()->mutable_fail_info()->mutable_message()) = e.what();
     }
   }

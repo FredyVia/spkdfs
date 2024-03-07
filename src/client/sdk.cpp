@@ -272,12 +272,12 @@ namespace spkdfs {
   }
 
   std::string SDK::get_tmp_path(Inode inode) {
-    string dst_path = "/tmp/spkdfs/fuse/" + cal_sha256sum(inode.fullpath);
+    string dst_path = "/tmp/spkdfs/fuse/" + cal_md5sum(inode.fullpath);
     createDirectoryIfNotExist(dst_path);
     return dst_path;
   }
 
-  std::string SDK::read_data(const Inode &inode, pair<int, int> indexs) {
+  std::string SDK::read_data(const Inode &inode, std::pair<int, int> indexs) {
     string dst_path(get_tmp_path(inode));
     string tmp_path;
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
@@ -285,25 +285,31 @@ namespace spkdfs {
     std::ostringstream oss;
     string tmp_str;
     for (int index = indexs.first; index < indexs.second; index++) {
-      tmp_path = dst_path + "/" + std::to_string(index);
+      string sha;
+      for (int i = 0; i < inode.storage_type_ptr->getBlocks(); i++) {
+        sha += blkids[index + i];
+      }
+      tmp_path = dst_path + "/" + std::to_string(index) + "_" + cal_md5sum(sha);
       pathlocks.lock(tmp_path);
-      if (fs::exists(tmp_path)) {
-        //  && (int filesize = fs::file_size(tmp_path)) > 0
+      if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
+        int filesize = fs::file_size(tmp_path);
+        tmp_str.resize(filesize);
         ifstream dstFile(tmp_path, std::ios::in | std::ios::binary);
         if (!dstFile) {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        int filesize = fs::file_size(tmp_path);
-        tmp_str.resize(filesize);
         if (!dstFile.read(&tmp_str[0], filesize)) {
           cout << "Failed to read file content." << endl;
           throw std::runtime_error("readfile error:" + tmp_path);
         }
+        dstFile.close();
+
       } else {
         ofstream dstFile(tmp_path, std::ios::out | std::ios::binary);
-        if (!dstFile.is_open()) {
-          throw runtime_error("Failed to open file");
+        if (!dstFile) {
+          cout << "Failed to open file for reading." << endl;
+          throw std::runtime_error("openfile error:" + tmp_path);
         }
         tmp_str = decode_one(blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
                              blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks(),
@@ -311,8 +317,8 @@ namespace spkdfs {
         dstFile << tmp_str;
         dstFile.close();
       }
-      oss << tmp_str;
       pathlocks.unlock(tmp_path);
+      oss << tmp_str;
     };
     return oss.str();
   }
@@ -327,6 +333,19 @@ namespace spkdfs {
         s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize() + size);
   }
 
+  void SDK::write_data(const string &path, uint32_t offset, std::string s) {
+    Inode inode = get_inode(path);
+    pair<int, int> indexs = get_index(inode, offset, s.size());
+    string s1 = read_data(inode, make_pair(index.first, index.first + 1));
+    string s2 = read_data(inode, make_pair(index.second - 1, index.second));
+    string res;
+    res.reserve((indexs.second - indexs.first) * inode.storage_type_ptr->getBlockSize());
+    res += string(s1.begein(),
+                  s1.begein() + offset - indexs.first * inode.storage_type_ptr->getBlockSize());
+    // string(s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize(),
+    //        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize() + size);
+  }
+  void SDK::write_data(const Inode &inode, std::pair<int, int> indexs, string s) {}
   // std::string SDK::get_one_data(const Inode &inode, int index) {
   //   string res;
   //   cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;

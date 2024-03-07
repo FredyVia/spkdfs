@@ -20,6 +20,7 @@ namespace spkdfs {
     DatanodeService_Stub* dn_stub_ptr;
     PathLocks pathlocks;
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
+    void write_data(const Inode& inode, std::pair<int, int> indexs, string s);
     inline std::pair<int, int> get_index(const Inode& inode, uint32_t offset, uint32_t size);
 
   public:
@@ -35,6 +36,7 @@ namespace spkdfs {
     void get(const std::string& src, const std::string& dst);
     std::string get_tmp_path(Inode inode);
     std::string read_data(const std::string& path, uint32_t offset, uint32_t size);
+    void write_data(const std::string& path, uint32_t offset, std::string s);
     std::string get_from_datanode(const std::string& datanode, const std::string& blkid);
     void put_part(const std::string& path, uint32_t offset, uint32_t size);
 

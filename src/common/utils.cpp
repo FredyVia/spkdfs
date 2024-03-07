@@ -1,10 +1,13 @@
 #include "common/utils.h"
 
+#include <cryptopp/filters.h>
+#include <cryptopp/hex.h>
+#include <cryptopp/md5.h>
+#include <cryptopp/sha.h>
 #include <glog/logging.h>
 
 #include <filesystem>
 
-#include "common/mln_sha.h"
 namespace spkdfs {
   using namespace std;
 
@@ -21,12 +24,22 @@ namespace spkdfs {
     }
   }
   std::string cal_sha256sum(std::string data) {
-    mln_sha256_t s;
-    mln_sha256_init(&s);
-    char sha256sum[1024] = {0};
-    mln_sha256_calc(&s, (mln_u8ptr_t)data.c_str(), data.size(), 1);
-    mln_sha256_tostring(&s, sha256sum, sizeof(sha256sum) - 1);
+    string sha256sum;
+    CryptoPP::SHA256 sha256;
+    CryptoPP::StringSource ss(
+        data, true,
+        new CryptoPP::HashFilter(sha256,
+                                 new CryptoPP::HexEncoder(new CryptoPP::StringSink(sha256sum))));
     return sha256sum;
   }
 
+  std::string cal_md5sum(std::string data) {
+    string md5sum;
+    CryptoPP::MD5 md5;
+    CryptoPP::StringSource ss(
+        data, true,
+        new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(md5sum))));
+
+    return md5sum;
+  }
 }  // namespace spkdfs

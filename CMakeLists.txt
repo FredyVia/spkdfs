@@ -34,6 +34,8 @@ find_package(glog CONFIG REQUIRED)
 
 find_package(RocksDB CONFIG REQUIRED)
 
+find_package(cryptopp CONFIG REQUIRED)
+
 pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
 
 pkg_check_modules(FUSE3 REQUIRED fuse3)
@@ -65,9 +67,9 @@ target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${D
 target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE)
-target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE)
-target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static PkgConfig::LIBERASURECODE fuse3)
+target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static PkgConfig::LIBERASURECODE fuse3 cryptopp::cryptopp)
 
 enable_testing()

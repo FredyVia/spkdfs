@@ -139,6 +139,8 @@ namespace spkdfs {
     j = nlohmann::json{{"fullpath", inode.fullpath}, {"is_directory", inode.is_directory},
                        {"filesize", inode.filesize}, {"sub", inode.sub},
                        {"valid", inode.valid},       {"building", inode.building}};
+    //  ,{"modification_time", inode.modification_time}
+
     if (inode.storage_type_ptr != nullptr) {
       nlohmann::json storage_json;
       inode.storage_type_ptr->to_json(storage_json);  // 假设 to_json 返回一个 JSON 对象
@@ -159,5 +161,6 @@ namespace spkdfs {
     inode.sub = j.at("sub").get<std::set<std::string>>();
     inode.valid = j.at("valid").get<bool>();
     inode.building = j.at("building").get<bool>();
+    // inode.modification_time = j.at("modification_time").get<int>();
   }
 }  // namespace spkdfs

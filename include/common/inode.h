@@ -79,6 +79,7 @@ namespace spkdfs {
     uint32_t filesize;
     std::shared_ptr<StorageType> storage_type_ptr;
     std::set<std::string> sub;  // sub directory for directory or blks for file
+    uint32_t version;
     bool valid;
     bool building;
     // int modification_time;

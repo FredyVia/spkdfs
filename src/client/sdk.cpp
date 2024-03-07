@@ -12,13 +12,12 @@ namespace spkdfs {
   using namespace brpc;
   namespace fs = std::filesystem;
 
-  template <typename ResponseType>
-  void check_response(const Controller &cntl, const ResponseType &response) {
+  void check_response(const Controller &cntl, const Response &response) {
     if (cntl.Failed()) {
       throw runtime_error("brpc not success: " + cntl.ErrorText());
     }
-    if (!response.common().success()) {
-      throw MessageException(response.common().fail_info());
+    if (!response.success()) {
+      throw MessageException(response.fail_info());
     }
   }
 
@@ -32,7 +31,7 @@ namespace spkdfs {
     Request request;
     DNGetNamenodesResponse dn_getnamenodes_resp;
     dn_stub_ptr->get_namenodes(&cntl, &request, &dn_getnamenodes_resp, NULL);
-    check_response(cntl, dn_getnamenodes_resp);
+    check_response(cntl, dn_getnamenodes_resp.common());
     cout << "namenodes: ";
     for (auto node : dn_getnamenodes_resp.nodes()) {
       cout << node << ", ";
@@ -49,7 +48,7 @@ namespace spkdfs {
     cntl.Reset();
     nn_stub.get_master(&cntl, &request, &nn_getmaster_resp, NULL);
 
-    check_response(cntl, nn_getmaster_resp);
+    check_response(cntl, nn_getmaster_resp.common());
     cout << "namenode master: " << nn_getmaster_resp.node() << endl;
     string namenode_master = nn_getmaster_resp.node();
 
@@ -71,7 +70,7 @@ namespace spkdfs {
     NNLsResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->ls(&cntl, &request, &response, NULL);
-    check_response(cntl, response);
+    check_response(cntl, response.common());
 
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
@@ -87,7 +86,7 @@ namespace spkdfs {
     CommonResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->mkdir(&cntl, &request, &response, NULL);
-    check_response(cntl, response);
+    check_response(cntl, response.common());
 
     cout << "success" << endl;
   }
@@ -97,7 +96,7 @@ namespace spkdfs {
     Request request;
     DNGetDatanodesResponse response;
     dn_stub_ptr->get_datanodes(&cntl, &request, &response, NULL);
-    check_response(cntl, response);
+    check_response(cntl, response.common());
     vector<Node> vec;
     for (const auto &node_str : response.nodes()) {
       Node node;
@@ -138,7 +137,7 @@ namespace spkdfs {
     nn_put_req.set_filesize(fileSize);
     *(nn_put_req.mutable_storage_type()) = storage_type;
     nn_master_stub_ptr->put(&cntl, &nn_put_req, &nn_put_resp, NULL);
-    check_response(cntl, nn_put_resp);
+    check_response(cntl, nn_put_resp.common());
 
     NNPutOKRequest nn_putok_req;
     *(nn_putok_req.mutable_path()) = dstFilePath;
@@ -172,7 +171,7 @@ namespace spkdfs {
         *(dn_req.mutable_data()) = encodedData;
         cntl.Reset();
         dn_stub.put(&cntl, &dn_req, &dn_resp, NULL);
-        check_response(cntl, dn_resp);
+        check_response(cntl, dn_resp.common());
 
         std::ostringstream oss;
         oss << std::setw(16) << std::setfill('0') << i++;
@@ -190,7 +189,7 @@ namespace spkdfs {
     CommonResponse response;
     cntl.Reset();
     nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
-    check_response(cntl, response);
+    check_response(cntl, response.common());
 
     cout << "put ok" << endl;
   }
@@ -204,7 +203,7 @@ namespace spkdfs {
     *(dnget_req.mutable_blkid()) = blkid;
     brpc::Controller cntl;
     dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
-    check_response(cntl, dnget_resp);
+    check_response(cntl, dnget_resp.common());
     cout << datanode << " | " << blkid << " success" << endl;
     string data = dnget_resp.data();
     cout << "dnget_resp blk size: " << data.size() << endl;
@@ -262,7 +261,7 @@ namespace spkdfs {
     CommonResponse response;
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->rm(&cntl, &request, &response, NULL);
-    check_response(cntl, response);
+    check_response(cntl, response.common());
 
     cout << "success" << endl;
   }

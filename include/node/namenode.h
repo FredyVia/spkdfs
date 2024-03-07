@@ -4,12 +4,31 @@
 #include <memory>
 #include <string>
 
+#include "brpc/closure_guard.h"
+#include "common/exception.h"
 #include "common/node.h"
 #include "node/raft_nn.h"
 #include "node/rocksdb.h"
 #include "service.pb.h"
 
 namespace spkdfs {
+  void fail_response(Response* response, const std::exception& e);
+  void fail_response(Response* response, const MessageException& e);
+  class CommonClosure : public braft::Closure {
+    google::protobuf::Closure* _done;
+
+  public:
+    Response* response;
+    CommonClosure(Response* response, google::protobuf::Closure* done)
+        : response(response), _done(done) {}
+    void Run() override {
+      std::unique_ptr<CommonClosure> self_guard(this);
+      brpc::ClosureGuard done_guard(_done);
+    }
+    inline void fail_response(const MessageException& e) { spkdfs::fail_response(response, e); }
+    inline void fail_response(const std::exception& e) { spkdfs::fail_response(response, e); }
+  };
+
   class NamenodeServiceImpl : public NamenodeService {
   public:
     NamenodeServiceImpl(RaftNN* nn_raft_ptr) : nn_raft_ptr(nn_raft_ptr) {}

@@ -7,7 +7,6 @@
 #include <nlohmann/json.hpp>
 #include <string>
 
-#include "common/exception.h"
 #include "common/inode.h"
 #include "node/raft_nn.h"
 #include "service.pb.h"
@@ -19,21 +18,19 @@ namespace spkdfs {
 
   namespace fs = std::filesystem;
 
-  template <typename ResponseType>
-  void fail_response(ResponseType& response, const std::exception& e) {
+  void fail_response(Response* response, const std::exception& e) {
     LOG(ERROR) << e.what();
-    response->mutable_common()->set_success(false);
+    response->set_success(false);
     ErrorMessage errMsg;
     errMsg.set_code(COMMON_EXCEPTION);
     errMsg.set_message(e.what());
-    *(response->mutable_common()->mutable_fail_info()) = errMsg;
+    *(response->mutable_fail_info()) = errMsg;
   }
 
-  template <typename ResponseType>
-  void fail_response(ResponseType& response, const MessageException& e) {
+  void fail_response(Response* response, const MessageException& e) {
     LOG(ERROR) << e.what();
-    response->mutable_common()->set_success(false);
-    *(response->mutable_common()->mutable_fail_info()) = e.errorMessage();
+    response->set_success(false);
+    *(response->mutable_fail_info()) = e.errorMessage();
   }
 
   void NamenodeServiceImpl::ls(::google::protobuf::RpcController* controller,
@@ -48,9 +45,9 @@ namespace spkdfs {
       response->mutable_common()->set_success(true);
       *(response->mutable_data()) = inode.value();
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   };
 
@@ -88,13 +85,13 @@ namespace spkdfs {
       buf.push_back(OpType::OP_MKDIR);
       buf.append(inode.value());
       task.data = &buf;  // task.data cannot be NULL
-      task.done = nullptr;
+      task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   }
 
@@ -130,13 +127,13 @@ namespace spkdfs {
       buf.push_back(OpType::OP_RM);
       buf.append(inode.value());
       task.data = &buf;  // task.data cannot be NULL
-      task.done = nullptr;
+      task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   };
 
@@ -173,13 +170,13 @@ namespace spkdfs {
       buf.push_back(OpType::OP_PUT);
       buf.append(inode.value());
       task.data = &buf;
-      task.done = nullptr;
+      task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   };
 
@@ -205,13 +202,13 @@ namespace spkdfs {
       buf.push_back(OpType::OP_PUTOK);
       buf.append(inode.value());
       task.data = &buf;
-      task.done = nullptr;
+      task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
       response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   }
 
@@ -229,9 +226,9 @@ namespace spkdfs {
       *(response->mutable_node()) = to_string(leader);
       response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
-      fail_response(response, e);
+      fail_response(response->mutable_common(), e);
     }
   }
   // void NamenodeServiceImpl::get_datanodes(::google::protobuf::RpcController* controller,
@@ -242,9 +239,9 @@ namespace spkdfs {
   //   try {
   //     response->
   //   } catch (const MessageException& e) {
-  //   fail_response(response, e);
+  //   fail_response(response->mutable_common(), e);
   //   } catch (const std::exception& e) {
-  //     fail_response(response, e);
+  //     fail_response(response->mutable_common(), e);
   //   }
   // }
 }  // namespace spkdfs

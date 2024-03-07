@@ -7,6 +7,7 @@
 #include <nlohmann/json.hpp>
 
 #include "node/config.h"
+#include "node/namenode.h"
 namespace spkdfs {
 
   using namespace std;
@@ -73,24 +74,32 @@ namespace spkdfs {
       data.copy_to(&str_inode);
       auto _json = json::parse(str_inode);
       Inode inode = _json.get<Inode>();
-      switch (type) {
-        case OP_MKDIR:
-          internal_mkdir(inode);
-          break;
-        case OP_PUT:
-          internal_put(inode);
-          break;
-        case OP_PUTOK:
-          internal_put_ok(inode);
-          break;
-        case OP_RM:
-          internal_rm(inode);
-          break;
-        case OP_UNKNOWN:
-          break;
-        default:
-          CHECK(false) << "Unknown type=" << static_cast<int>(type);
-          break;
+      CommonClosure* c = dynamic_cast<CommonClosure*>(iter.done());
+      try {
+        switch (type) {
+          case OP_MKDIR:
+            internal_mkdir(inode);
+            break;
+          case OP_PUT:
+            internal_put(inode);
+            break;
+          case OP_PUTOK:
+            internal_put_ok(inode);
+            break;
+          case OP_RM:
+            internal_rm(inode);
+            break;
+          case OP_UNKNOWN:
+          default:
+            LOG(ERROR) << "Unknown type=" << static_cast<int>(type);
+            break;
+        }
+      } catch (const MessageException& e) {
+        c->fail_response(e);
+        LOG(ERROR) << e.what();
+      } catch (const exception& e) {
+        c->fail_response(e);
+        LOG(ERROR) << e.what();
       }
     }
   }

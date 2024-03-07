@@ -165,7 +165,7 @@ namespace spkdfs {
     // butil::IOBuf buf;
     braft::Task task;
     task.data = &buf;
-    task.done = NULL;
+    task.done = nullptr;
     raft_node->apply(task);
   }
 

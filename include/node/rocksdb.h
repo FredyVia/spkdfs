@@ -3,7 +3,6 @@
 #include <string>
 
 #include "common/inode.h"
-#include "common/pathlocks.h"
 #include "rocksdb/db.h"
 #include "rocksdb/utilities/backup_engine.h"
 #include "service.pb.h"
@@ -14,9 +13,8 @@ namespace spkdfs {
     std::string backup_dir;
     rocksdb::DB* db_ptr = nullptr;
     rocksdb::BackupEngine* backup_engine_ptr;
-    PathLocks pathLocks;
-    rocksdb::Status get(const std::string& key, std::string& value) const;
-    rocksdb::Status put(const std::string& key, const std::string& value);
+    inline rocksdb::Status get(const std::string& key, std::string& value) const;
+    inline rocksdb::Status put(const std::string& key, const std::string& value);
     void open();
     void close();
     void try_to_add(const Inode& inode) const;

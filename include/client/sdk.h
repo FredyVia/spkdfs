@@ -11,8 +11,7 @@
 #include "service.pb.h"
 
 namespace spkdfs {
-  template <typename ResponseType>
-  void check_response(const brpc::Controller& cntl, const ResponseType& response);
+  void check_response(const brpc::Controller& cntl, const Response& response);
   class SDK {
   private:
     brpc::Channel nn_master_channel;

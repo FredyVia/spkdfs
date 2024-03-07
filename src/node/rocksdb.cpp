@@ -60,17 +60,13 @@ namespace spkdfs {
 
   RocksDB::~RocksDB() { close(); }
 
-  rocksdb::Status RocksDB::put(const std::string& key, const std::string& value) {
-    // private not check
-    // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-
+  inline rocksdb::Status RocksDB::put(const std::string& key, const std::string& value) {
+    // private not check db_ptr == nullptr
     return db_ptr->Put(rocksdb::WriteOptions(), key, value);
   }
 
-  rocksdb::Status RocksDB::get(const std::string& key, std::string& value) const {
-    // private not check
-    // if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-
+  inline rocksdb::Status RocksDB::get(const std::string& key, std::string& value) const {
+    // private not check db_ptr == nullptr
     return db_ptr->Get(rocksdb::ReadOptions(), key, &value);
   }
 
@@ -194,8 +190,6 @@ namespace spkdfs {
   void RocksDB::internal_rm(const Inode& inode) {
     Status s;
     string value;
-    pathLocks.lock(inode.parent_path());
-    pathLocks.lock(inode.key());
 
     Inode parent_inode = get_parent_inode(inode);
     parent_inode.sub.erase(inode.filename());
@@ -204,8 +198,6 @@ namespace spkdfs {
     batch.Put(parent_inode.fullpath, parent_inode.value());
     batch.Put(inode.fullpath, inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
-    pathLocks.unlock(inode.key());
-    pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
       throw runtime_error("batch write not ok!" + s.ToString());
     }
@@ -238,8 +230,6 @@ namespace spkdfs {
   void RocksDB::internal_put_ok(const Inode& inode) {
     Status s;
     string value;
-    pathLocks.lock(inode.parent_path());
-    pathLocks.lock(inode.key());
     auto parent_inode = get_parent_inode(inode);
     parent_inode.sub.insert(inode.filename());
     s = get(inode.fullpath, value);
@@ -257,8 +247,6 @@ namespace spkdfs {
     batch.Put(parent_inode.fullpath, parent_inode.value());
     batch.Put(db_inode.fullpath, db_inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
-    pathLocks.unlock(inode.key());
-    pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
       throw runtime_error("batch write not ok" + s.ToString());
     }
@@ -267,9 +255,7 @@ namespace spkdfs {
   void RocksDB::internal_put(const Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     LOG(INFO) << "internal put" << inode.value();
-    pathLocks.lock(inode.key());
     Status s = put(inode.fullpath, inode.value());
-    pathLocks.unlock(inode.key());
     if (!s.ok()) {
       throw runtime_error("internal put not ok" + s.ToString());
     }
@@ -279,8 +265,6 @@ namespace spkdfs {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     Status s;
     LOG(INFO) << "internal mkdir" << inode.value();
-    pathLocks.lock(inode.parent_path());
-    pathLocks.lock(inode.key());
     auto parent_inode = get_parent_inode(inode);
     parent_inode.sub.insert(inode.filename() + "/");
     LOG(INFO) << "parent_inode:" << parent_inode.value();
@@ -289,8 +273,6 @@ namespace spkdfs {
     batch.Put(parent_inode.fullpath, parent_inode.value());
     batch.Put(inode.fullpath, inode.value());
     s = db_ptr->Write(rocksdb::WriteOptions(), &batch);
-    pathLocks.unlock(inode.key());
-    pathLocks.unlock(inode.parent_path());
     if (!s.ok()) {
       throw runtime_error("batch write not ok" + s.ToString());
     }

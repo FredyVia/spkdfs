@@ -103,33 +103,39 @@ public:
     }
     throw runtime_error("all nodes offline");
   }
+
   void reinit() {
     deinit();
     init();
   }
+
   void mkdir(const string &dst) {
     cout << "libfuse mkdir :" << dst << endl;
     try {
       sdk->mkdir(dst);
     } catch (const spkdfs::MessageException &e) {
-      return;
+      cout << e.what() << endl;
     } catch (const exception &e) {
       cout << e.what() << endl;
       reinit();
+      sdk->mkdir(dst);
     }
-    mkdir(dst);
   };
+
   void rm(const std::string &dst) {
     cout << "libfuse rm :" << dst << endl;
     try {
       sdk->rm(dst);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
     } catch (const exception &e) {
       cout << dst << endl;
       cout << e.what() << endl;
       reinit();
+      sdk->rm(dst);
     }
-    rm(dst);
   }
+
   Inode ls(const std::string &dst) {
     cout << "libfuse ls :" << dst << endl;
     try {
@@ -141,15 +147,24 @@ public:
       cout << dst << endl;
       cout << e.what() << endl;
       reinit();
+      return sdk->ls(dst);
     }
-    return ls(dst);
   }
-  string read(const string &path, uint32_t offset, uint32_t size) {
-    return sdk->read_data(path, offset, size);
+
+  string read(const string &dst, uint32_t offset, uint32_t size) {
+    cout << "libfuse read :" << dst << endl;
+    try {
+      return sdk->read_data(dst, offset, size);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+      throw e;
+    } catch (const exception &e) {
+      cout << dst << endl;
+      cout << e.what() << endl;
+      reinit();
+      return sdk->read_data(dst, offset, size);
+    }
   }
-  // void put(const std::string &src, const std::string &dst, const std::string &storage_type,
-  //          unsigned int blocksize);
-  // void get(const std::string &src, const std::string &dst);
 };
 
 static struct options {
@@ -206,6 +221,44 @@ static int spkdfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
   return 0;
 }
 
+static int spkdfs_mkdir(const char *path, mode_t mode) {
+  try {
+    fuse_ptr->mkdir(path);
+  } catch (const MessageException &e) {
+    cout << e.what() << endl;
+    switch (e.errorMessage().code()) {
+      case PATH_EXISTS_EXCEPTION:
+        return EEXIST;
+      case PATH_NOT_EXISTS_EXCEPTION:  // parent path not exist
+        return ENOENT;
+      default:
+        return EIO;
+    }
+  } catch (const exception &e) {
+    return EIO;
+  }
+  return 0;
+}
+
+static int spkdfs_rm(const char *path) {
+  try {
+    fuse_ptr->rm(path);
+  } catch (const MessageException &e) {
+    cout << e.what() << endl;
+    switch (e.errorMessage().code()) {
+      case PATH_EXISTS_EXCEPTION:
+        return EEXIST;
+      case PATH_NOT_EXISTS_EXCEPTION:  // parent path not exist
+        return ENOENT;
+      default:
+        throw e;  // go to next catch
+    }
+  } catch (const exception &e) {
+    return EIO;
+  }
+  return 0;
+}
+
 static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
   Inode inode = fuse_ptr->ls(path);
@@ -225,7 +278,7 @@ static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
 
 static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
                        struct fuse_file_info *fi) {
-  size_t len;
+  cout << "call spkdfs_read, offset: " << offset << ", size: " << size << endl;
   try {
     string s = fuse_ptr->read(path, offset, size);
     memcpy(buff, s.data(), size);
@@ -248,6 +301,8 @@ static int spkdfs_write(const char *, const char *, size_t size, off_t offset,
 }
 static const struct fuse_operations spkdfs_oper = {
     .getattr = spkdfs_getattr,  // 316
+    .mkdir = spkdfs_mkdir,      // 342
+    .rmdir = spkdfs_rm,         // 348
     .open = spkdfs_open,        // 441
     .read = spkdfs_read,        // 452
     .write = spkdfs_write,

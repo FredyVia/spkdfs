@@ -5,6 +5,7 @@
 #include <sys/syslog.h>
 
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 
@@ -12,6 +13,7 @@
 #include "node/config.h"
 namespace spkdfs {
   using namespace std;
+  namespace fs = std::filesystem;
   // void DatanodeServiceImpl::set_namenode_master(Node node) {
   //   node.port = FLAGS_nn_port;
   //   if (node == namenode_master) return;
@@ -59,16 +61,13 @@ namespace spkdfs {
       // check_status();
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
       string data;
-      std::ifstream file(file_path, std::ios::binary);
+      std::ifstream file(file_path, std::ios::in | std::ios::binary);
       if (!file) {
         LOG(ERROR) << "Failed to open file for reading.";
         throw std::runtime_error("openfile error:" + file_path);
       }
 
-      // 移动到文件末尾来确定文件大小
-      file.seekg(0, std::ios::end);
-      std::streamsize size = file.tellg();
-      file.seekg(0, std::ios::beg);
+      uint32_t size = fs::file_size(file_path);
 
       // 为整个文件内容预留空间，然后读取
       data.resize(size);

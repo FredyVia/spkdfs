@@ -203,7 +203,7 @@ namespace spkdfs {
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
     string file_path = reader->get_path() + "namenodes.json";
     string str;
-    ifstream file(file_path, std::fstream::in | ios::binary);
+    ifstream file(file_path, ios::binary);
     if (!file) {
       LOG(ERROR) << "Failed to open file for reading.";
       return -1;

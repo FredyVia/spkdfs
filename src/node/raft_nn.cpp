@@ -100,6 +100,7 @@ namespace spkdfs {
     braft::AsyncClosureGuard done_guard(done);
     db.snapshot();
   }
+
   int RaftNN::on_snapshot_load(braft::SnapshotReader* reader) {
     LOG(INFO) << "nn on_snapshot_load";
     db.load_snapshot();

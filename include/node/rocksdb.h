@@ -1,26 +1,13 @@
 #ifndef ROCKSDB_H
 #define ROCKSDB_H
-#include <mutex>
-#include <shared_mutex>
 #include <string>
 
 #include "common/inode.h"
+#include "common/pathlocks.h"
 #include "rocksdb/db.h"
 #include "rocksdb/utilities/backup_engine.h"
 #include "service.pb.h"
 namespace spkdfs {
-
-  class PathLocks {
-  private:
-    std::unordered_map<std::string, std::unique_ptr<std::mutex>> locks;
-    std::shared_mutex mapMutex;  // 用于保护锁映射的互斥量
-
-  public:
-    void lock(const std::string& path);
-
-    void unlock(const std::string& path);
-  };
-
   class RocksDB {
   private:
     std::string origin_dir;

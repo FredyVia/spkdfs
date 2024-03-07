@@ -96,7 +96,7 @@ namespace spkdfs {
     dn_raft_ptr->start();
     int count = 0;
     while (!brpc::IsAskedToQuit()) {
-      sleep(1);
+      sleep(10);
       count++;
       if (count == 5) {
         count = 0;

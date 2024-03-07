@@ -7,6 +7,7 @@
 
 #include "common/inode.h"
 #include "common/node.h"
+#include "common/pathlocks.h"
 #include "service.pb.h"
 
 namespace spkdfs {
@@ -18,6 +19,7 @@ namespace spkdfs {
     brpc::Channel dn_channel;
     NamenodeService_Stub* nn_master_stub_ptr;
     DatanodeService_Stub* dn_stub_ptr;
+    PathLocks pathlocks;
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     inline std::pair<int, int> get_index(const Inode& inode, uint32_t offset, uint32_t size);
 

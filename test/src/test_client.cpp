@@ -64,7 +64,7 @@ TEST(ClientTest, concurrency) {
   // cout << "namenode master: " << master_response.node() << endl;
   // namenode_master = master_response.node();
 
-  // std::vector<std::thread> threads;
+  // vector<std::thread> threads;
 
   // // 创建并启动多个线程
   // for (int i = 0; i < 5; ++i) {
@@ -104,5 +104,21 @@ TEST(CommonTest, alignup) {
   for (auto& vec : checks) {
     EXPECT_EQ(align_index_down(vec[0], vec[1]), vec[2]);
     EXPECT_EQ(align_index_up(vec[0], vec[1]), vec[3]);
+  }
+}
+TEST(CommonTest, rethrow) {
+  try {
+    try {
+      throw 20;
+    } catch (int e) {
+      cout << "An exception occurred. Exception Nr. " << e << endl;
+      throw string("abc");
+    } catch (std::string const& ex) {
+      EXPECT_EQ(1, 2);
+      cout << "first string " << ex << endl;
+    }
+  } catch (std::string const& ex) {
+    EXPECT_EQ(1, 1);
+    cout << "second string " << ex << endl;
   }
 }

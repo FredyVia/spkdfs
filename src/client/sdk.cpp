@@ -128,7 +128,7 @@ namespace spkdfs {
       throw runtime_error("Failed to open file");
     }
 
-    auto fileSize = file.tellg();
+    auto fileSize = fs::file_size(srcFilePath);
     cout << "fileSize: " << fileSize << endl;
     file.seekg(0, ios::beg);
     brpc::Controller cntl;
@@ -242,7 +242,7 @@ namespace spkdfs {
     Inode inode = get_inode(src);
 
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-    ofstream dstFile(dst, std::ios::out);
+    ofstream dstFile(dst, std::ios::out | std::ios::binary);
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file");
     }
@@ -279,21 +279,41 @@ namespace spkdfs {
   }
 
   std::string SDK::read_data(const Inode &inode, pair<int, int> indexs) {
-    string dst_path = get_tmp_path(inode);
+    string dst_path(get_tmp_path(inode));
+    string tmp_path;
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
     vector<string> blkids(inode.sub.begin(), inode.sub.end());
     std::ostringstream oss;
+    string tmp_str;
     for (int index = indexs.first; index < indexs.second; index++) {
-      ofstream dstFile(dst_path + "/" + std::to_string(index), std::ios::out);
-      if (!dstFile.is_open()) {
-        throw runtime_error("Failed to open file");
+      tmp_path = dst_path + "/" + std::to_string(index);
+      pathlocks.lock(tmp_path);
+      if (fs::exists(tmp_path)) {
+        //  && (int filesize = fs::file_size(tmp_path)) > 0
+        ifstream dstFile(tmp_path, std::ios::in | std::ios::binary);
+        if (!dstFile) {
+          cout << "Failed to open file for reading." << endl;
+          throw std::runtime_error("openfile error:" + tmp_path);
+        }
+        int filesize = fs::file_size(tmp_path);
+        tmp_str.resize(filesize);
+        if (!dstFile.read(&tmp_str[0], filesize)) {
+          cout << "Failed to read file content." << endl;
+          throw std::runtime_error("readfile error:" + tmp_path);
+        }
+      } else {
+        ofstream dstFile(tmp_path, std::ios::out | std::ios::binary);
+        if (!dstFile.is_open()) {
+          throw runtime_error("Failed to open file");
+        }
+        tmp_str = decode_one(blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
+                             blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks(),
+                             inode.storage_type_ptr);
+        dstFile << tmp_str;
+        dstFile.close();
       }
-      string s = decode_one(blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
-                            blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks(),
-                            inode.storage_type_ptr);
-      dstFile << s;
-      dstFile.close();
-      oss << s;
+      oss << tmp_str;
+      pathlocks.unlock(tmp_path);
     };
     return oss.str();
   }

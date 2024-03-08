@@ -21,11 +21,9 @@ namespace spkdfs {
     DatanodeService_Stub* get_dn_stub(const std::string& node);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     void write_data(const Inode& inode, int start_index, std::string s);
-    inline std::pair<int, int> get_index(const Inode& inode, uint32_t offset, uint32_t size);
-    std::vector<std::string> encode_one(std::shared_ptr<StorageType> storage_type_ptr,
-                                        std::string block);
-    template <typename Iter>
-    std::string decode_one(std::shared_ptr<StorageType> storage_type_ptr, Iter begin, Iter end);
+    inline std::pair<int, int> get_indexs(const Inode& inode, uint32_t offset, uint32_t size) const;
+    std::string encode_one(std::shared_ptr<StorageType> storage_type_ptr, std::string block);
+    std::string decode_one(std::shared_ptr<StorageType> storage_type_ptr, const std::string& s);
 
   public:
     std::vector<std::string> get_datanodes();
@@ -36,7 +34,7 @@ namespace spkdfs {
     Inode ls(const std::string& dst);
     void put(const std::string& src, const std::string& dst, const std::string& storage_type);
     void get(const std::string& src, const std::string& dst);
-    std::string get_tmp_path(Inode inode);
+    std::string get_tmp_path(Inode inode) const;
     std::string read_data(const std::string& path, uint32_t offset, uint32_t size);
     void write_data(const std::string& path, uint32_t offset, std::string s);
     std::string put_to_datanode(const std::string& datanode, std::string block);

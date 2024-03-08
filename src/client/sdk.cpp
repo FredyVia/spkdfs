@@ -166,10 +166,8 @@ namespace spkdfs {
       // if (bytesRead < block_size) {
       //   block.resize(block_size, '0');  // 使用0填充到新大小
       // }
-      auto res = encode_one(storage_type_ptr, block);
-      for (auto s : res) {
-        nn_putok_req.add_sub(s);
-      }
+      string res = encode_one(storage_type_ptr, block);
+      nn_putok_req.add_sub(res);
       blockIndex++;
     }
     CommonResponse response;
@@ -210,11 +208,10 @@ namespace spkdfs {
     return sha256sum;
   }
 
-  std::vector<std::string> SDK::encode_one(std::shared_ptr<StorageType> storage_type_ptr,
-                                           std::string block) {
+  std::string SDK::encode_one(std::shared_ptr<StorageType> storage_type_ptr, std::string block) {
     auto vec = storage_type_ptr->encode(block);
     vector<string> nodes = get_datanodes();
-    vector<string> res;
+    string res;
     int node_index = 0, succ = 0;
     Controller cntl;
     // 上传每个编码后的分块
@@ -226,7 +223,7 @@ namespace spkdfs {
       std::ostringstream oss;
       oss << std::setw(16) << std::setfill('0') << succ;
       cout << oss.str() << endl;
-      res.push_back(oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum);
+      res += oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum + ",";
 
       succ++;
       node_index = (node_index + 1) % nodes.size();
@@ -234,16 +231,17 @@ namespace spkdfs {
         cout << "may not be secure" << endl;
       }
     }
+    res.pop_back();
     return res;
   }
 
-  template <typename Iter>
-  std::string SDK::decode_one(std::shared_ptr<StorageType> storage_type_ptr, Iter begin, Iter end) {
+  std::string SDK::decode_one(std::shared_ptr<StorageType> storage_type_ptr, const std::string &s) {
     int succ = 0;
     vector<string> datas;
     datas.resize(storage_type_ptr->getDecodeBlocks());
-    while (begin != end) {
-      string str = *begin;
+    stringstream ss(s);
+    string str;
+    while (getline(ss, str, ',')) {
       stringstream ss(str);
       string _, node, blkid;
       getline(ss, _, '|');      // 提取第一个部分
@@ -258,7 +256,6 @@ namespace spkdfs {
       } catch (const exception &e) {
         cout << node << " | " << blkid << " failed" << endl;
       }
-      begin++;
     }
     return "";
   }
@@ -271,10 +268,8 @@ namespace spkdfs {
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file");
     }
-    vector<string> blkids(inode.sub.begin(), inode.sub.end());
-    for (int start = 0; start < blkids.size(); start += inode.storage_type_ptr->getBlocks()) {
-      dstFile << decode_one(inode.storage_type_ptr, blkids.begin() + start,
-                            blkids.begin() + start + inode.storage_type_ptr->getBlocks());
+    for (const auto &s : inode.sub) {
+      dstFile << decode_one(inode.storage_type_ptr, s);
     };
     dstFile.close();
     fs::resize_file(dst, inode.filesize);
@@ -291,12 +286,12 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
-  inline pair<int, int> SDK::get_index(const Inode &inode, uint32_t offset, uint32_t size) {
+  inline pair<int, int> SDK::get_indexs(const Inode &inode, uint32_t offset, uint32_t size) const {
     return make_pair(align_index_down(offset, inode.getBlockSize()),
                      align_index_up(offset + size, inode.getBlockSize()));
   }
 
-  std::string SDK::get_tmp_path(Inode inode) {
+  std::string SDK::get_tmp_path(Inode inode) const {
     string dst_path = "/tmp/spkdfs/fuse/" + cal_md5sum(inode.fullpath);
     createDirectoryIfNotExist(dst_path);
     return dst_path;
@@ -306,15 +301,13 @@ namespace spkdfs {
     string dst_path(get_tmp_path(inode));
     string tmp_path;
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-    vector<string> blkids(inode.sub.begin(), inode.sub.end());
+    auto iter = inode.sub.begin();
+    for (int i = 0; i < indexs.first; i++) iter++;
     std::ostringstream oss;
     string tmp_str;
     for (int index = indexs.first; index < indexs.second; index++) {
-      string sha;
-      for (int i = 0; i < inode.storage_type_ptr->getBlocks(); i++) {
-        sha += blkids[index + i];
-      }
-      tmp_path = dst_path + "/" + std::to_string(index) + "_" + cal_md5sum(sha);
+      string blks = *iter;
+      tmp_path = dst_path + "/" + std::to_string(index) + "_" + cal_md5sum(blks);
       pathlocks.lock(tmp_path);
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
@@ -336,14 +329,13 @@ namespace spkdfs {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        tmp_str = decode_one(inode.storage_type_ptr,
-                             blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
-                             blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks());
+        tmp_str = decode_one(inode.storage_type_ptr, blks);
         dstFile << tmp_str;
         dstFile.close();
       }
       pathlocks.unlock(tmp_path);
       oss << tmp_str;
+      iter++;
     };
     return oss.str();
   }
@@ -351,7 +343,7 @@ namespace spkdfs {
   std::string SDK::read_data(const string &path, uint32_t offset, uint32_t size) {
     string res;
     Inode inode = get_inode(path);
-    pair<int, int> indexs = get_index(inode, offset, size);
+    pair<int, int> indexs = get_indexs(inode, offset, size);
     auto s = read_data(inode, indexs);
     return string(s.begin() + offset - indexs.first * inode.getBlockSize(),
                   s.begin() + offset - indexs.first * inode.getBlockSize() + size);
@@ -359,7 +351,7 @@ namespace spkdfs {
 
   void SDK::write_data(const string &path, uint32_t offset, std::string s) {
     Inode inode = get_inode(path);
-    pair<int, int> indexs = get_index(inode, offset, s.size());
+    pair<int, int> indexs = get_indexs(inode, offset, s.size());
     string s1 = read_data(inode, make_pair(indexs.first, indexs.first + 1));
     string s2 = read_data(inode, make_pair(indexs.second - 1, indexs.second));
     string res;
@@ -368,6 +360,11 @@ namespace spkdfs {
     res += s;
     res += string(s2.begin() + offset + s.size(), s2.end());
     write_data(inode, indexs.first, res);
+    // auto blkids = inode.blkids();
+    for (int i = indexs.first; i < indexs.second; i++) {
+    }
+    for (int i = indexs.second; i < indexs.second; i++) {
+    }
     // string(s.begin() + offset - indexs.first * inode.getBlockSize(),
     //        s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }

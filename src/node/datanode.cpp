@@ -37,7 +37,7 @@ namespace spkdfs {
     try {
       // check_status();
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
-      ofstream file(file_path, std::ios::out | ios::binary);
+      ofstream file(file_path, ios::binary);
       if (!file) {
         LOG(ERROR) << "Failed to open file for writing.";
         throw runtime_error("openfile error:" + file_path);
@@ -61,7 +61,7 @@ namespace spkdfs {
       // check_status();
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
       string data;
-      std::ifstream file(file_path, std::ios::in | std::ios::binary);
+      std::ifstream file(file_path, std::ios::binary);
       if (!file) {
         LOG(ERROR) << "Failed to open file for reading.";
         throw std::runtime_error("openfile error:" + file_path);

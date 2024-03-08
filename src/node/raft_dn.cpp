@@ -188,7 +188,7 @@ namespace spkdfs {
   void RaftDN::on_snapshot_save(braft::SnapshotWriter* writer, braft::Closure* done) {
     brpc::ClosureGuard done_guard(done);
     string file_path = writer->get_path() + "/namenodes.json";
-    ofstream file(file_path, std::ios::out | ios::binary);
+    ofstream file(file_path, ios::binary);
     if (!file) {
       LOG(ERROR) << "Failed to open file for writing.";
       done->status().set_error(EIO, "Fail to save " + file_path);

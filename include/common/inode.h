@@ -82,6 +82,9 @@ namespace spkdfs {
     bool valid;
     bool building;
     // uint32_t modification_time;
+    inline uint32_t getBlockSize() const {
+      return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
+    }
     inline std::string filename() const {
       return std::filesystem::path(fullpath).filename().string();
     }

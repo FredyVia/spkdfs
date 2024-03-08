@@ -22,15 +22,10 @@ namespace spkdfs {
   }
 
   SDK::SDK(const std::string &datanode) {
-    if (dn_channel.Init(string(datanode).c_str(), NULL) != 0) {
-      throw runtime_error("datanode channel init failed");
-    }
-    dn_stub_ptr = new DatanodeService_Stub(&dn_channel);
-
     Controller cntl;
     Request request;
     DNGetNamenodesResponse dn_getnamenodes_resp;
-    dn_stub_ptr->get_namenodes(&cntl, &request, &dn_getnamenodes_resp, NULL);
+    get_dn_stub(datanode)->get_namenodes(&cntl, &request, &dn_getnamenodes_resp, NULL);
     check_response(cntl, dn_getnamenodes_resp.common());
     cout << "namenodes: ";
     for (auto node : dn_getnamenodes_resp.nodes()) {
@@ -59,9 +54,29 @@ namespace spkdfs {
     cout << endl;
   }
 
+  DatanodeService_Stub *SDK::get_dn_stub(const std::string &node) {
+    if (dn_stubs.find(node) == dn_stubs.end()) {
+      dn_stubs[node].first.Init(node.c_str(), NULL);
+      try {
+        dn_stubs[node].second = new DatanodeService_Stub(&(dn_stubs[node].first));
+      } catch (const exception &e) {
+        dn_stubs[node].second = nullptr;
+      }
+    }
+    if (dn_stubs[node].second == nullptr) {
+      throw runtime_error("node not online");
+    }
+    return dn_stubs[node].second;
+  }
+
   SDK::~SDK() {
     if (nn_master_stub_ptr != nullptr) delete nn_master_stub_ptr;
-    if (dn_stub_ptr != nullptr) delete dn_stub_ptr;
+    for (auto &p : dn_stubs) {
+      if (p.second.second != nullptr) {
+        delete p.second.second;
+        p.second.second = nullptr;
+      }
+    }
   }
 
   Inode SDK::get_inode(const std::string &dst) {
@@ -91,11 +106,11 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
-  vector<Node> SDK::get_datanodes() {
+  std::vector<std::string> SDK::get_datanodes() {
     brpc::Controller cntl;
     Request request;
     DNGetDatanodesResponse response;
-    dn_stub_ptr->get_datanodes(&cntl, &request, &response, NULL);
+    dn_stubs.begin()->second.second->get_datanodes(&cntl, &request, &response, NULL);
     check_response(cntl, response.common());
     vector<Node> vec;
     for (const auto &node_str : response.nodes()) {
@@ -108,28 +123,24 @@ namespace spkdfs {
         std::remove_if(vec.begin(), vec.end(),
                        [](const Node &node) { return node.nodeStatus != NodeStatus::ONLINE; }),
         vec.end());
-    return vec;
+    vector<string> res;
+    for (const auto &node : vec) {
+      res.push_back(to_string(node));
+    }
+    return res;
   }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
                 const std::string &storage_type) {
-    auto nodes = get_datanodes();
-
-    vector<Channel> dn_channels(nodes.size());
-    for (int i = 0; i < nodes.size(); i++) {
-      dn_channels[i].Init(to_string(nodes[i]).c_str(), NULL);
-    }
     shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(storage_type);
 
     cout << "opening file " << srcFilePath << endl;
-    ifstream file(srcFilePath, ios::binary | ios::ate);
+    ifstream file(srcFilePath, ios::binary);
     if (!file.is_open()) {
       throw runtime_error("Failed to open file");
     }
-
     auto fileSize = fs::file_size(srcFilePath);
     cout << "fileSize: " << fileSize << endl;
-    file.seekg(0, ios::beg);
     brpc::Controller cntl;
     NNPutRequest nn_put_req;
     NNPutResponse nn_put_resp;
@@ -155,34 +166,9 @@ namespace spkdfs {
       // if (bytesRead < block_size) {
       //   block.resize(block_size, '0');  // 使用0填充到新大小
       // }
-      auto vec = storage_type_ptr->encode(block);
-      // 上传每个编码后的分块
-      for (auto &encodedData : vec) {
-        auto sha256sum = cal_sha256sum(encodedData);
-        cout << "sha256sum:" << sha256sum << endl;
-        // 假设每个分块的大小是block.size() / k
-
-        cout << "node[" << node_index << "]"
-             << ":" << nodes[node_index] << endl;
-        DNPutRequest dn_req;
-        CommonResponse dn_resp;
-        DatanodeService_Stub dn_stub(&dn_channels[node_index]);
-        *(dn_req.mutable_blkid()) = sha256sum;
-        *(dn_req.mutable_data()) = encodedData;
-        cntl.Reset();
-        dn_stub.put(&cntl, &dn_req, &dn_resp, NULL);
-        check_response(cntl, dn_resp.common());
-
-        std::ostringstream oss;
-        oss << std::setw(16) << std::setfill('0') << i++;
-        cout << oss.str() << endl;
-        nn_putok_req.add_sub(oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum);
-
-        succ++;
-        node_index = (node_index + 1) % nodes.size();
-        if (node_index == 0 && storage_type_ptr->check(succ) == false) {
-          cout << "may not be secure" << endl;
-        }
+      auto res = encode_one(storage_type_ptr, block);
+      for (auto s : res) {
+        nn_putok_req.add_sub(s);
       }
       blockIndex++;
     }
@@ -195,24 +181,64 @@ namespace spkdfs {
   }
 
   std::string SDK::get_from_datanode(const std::string &datanode, const std::string &blkid) {
-    Channel dn_channel;
-    dn_channel.Init(datanode.c_str(), NULL);
-    DatanodeService_Stub dn_stub(&dn_channel);
     DNGetRequest dnget_req;
     DNGetResponse dnget_resp;
     *(dnget_req.mutable_blkid()) = blkid;
     brpc::Controller cntl;
-    dn_stub.get(&cntl, &dnget_req, &dnget_resp, NULL);
+    get_dn_stub(datanode)->get(&cntl, &dnget_req, &dnget_resp, NULL);
     check_response(cntl, dnget_resp.common());
     cout << datanode << " | " << blkid << " success" << endl;
     string data = dnget_resp.data();
-    cout << "dnget_resp blk size: " << data.size() << endl;
-    assert(cal_sha256sum(data) == blkid);
+    if (cal_sha256sum(data) != blkid) {
+      throw runtime_error("sha256sum check fail");
+    };
     return data;
   }
 
+  std::string SDK::put_to_datanode(const string &datanode, std::string block) {
+    string sha256sum = cal_sha256sum(block);
+    cout << "sha256sum:" << sha256sum << endl;
+    // 假设每个分块的大小是block.size() / k
+    Controller cntl;
+    DNPutRequest dn_req;
+    CommonResponse dn_resp;
+    *(dn_req.mutable_blkid()) = sha256sum;
+    *(dn_req.mutable_data()) = block;
+
+    get_dn_stub(datanode)->put(&cntl, &dn_req, &dn_resp, NULL);
+    check_response(cntl, dn_resp.common());
+    return sha256sum;
+  }
+
+  std::vector<std::string> SDK::encode_one(std::shared_ptr<StorageType> storage_type_ptr,
+                                           std::string block) {
+    auto vec = storage_type_ptr->encode(block);
+    vector<string> nodes = get_datanodes();
+    vector<string> res;
+    int node_index = 0, succ = 0;
+    Controller cntl;
+    // 上传每个编码后的分块
+    for (auto &encodedData : vec) {
+      cout << "node[" << node_index << "]"
+           << ":" << nodes[node_index] << endl;
+      string sha256sum = put_to_datanode(nodes[node_index], encodedData);
+
+      std::ostringstream oss;
+      oss << std::setw(16) << std::setfill('0') << succ;
+      cout << oss.str() << endl;
+      res.push_back(oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum);
+
+      succ++;
+      node_index = (node_index + 1) % nodes.size();
+      if (node_index == 0 && storage_type_ptr->check(succ) == false) {
+        cout << "may not be secure" << endl;
+      }
+    }
+    return res;
+  }
+
   template <typename Iter>
-  string SDK::decode_one(Iter begin, Iter end, std::shared_ptr<StorageType> storage_type_ptr) {
+  std::string SDK::decode_one(std::shared_ptr<StorageType> storage_type_ptr, Iter begin, Iter end) {
     int succ = 0;
     vector<string> datas;
     datas.resize(storage_type_ptr->getDecodeBlocks());
@@ -234,22 +260,21 @@ namespace spkdfs {
       }
       begin++;
     }
-    throw runtime_error("cannot decode one");
+    return "";
   }
 
   void SDK::get(const std::string &src, const std::string &dst) {
     Inode inode = get_inode(src);
 
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-    ofstream dstFile(dst, std::ios::out | std::ios::binary);
+    ofstream dstFile(dst, std::ios::binary);
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file");
     }
     vector<string> blkids(inode.sub.begin(), inode.sub.end());
     for (int start = 0; start < blkids.size(); start += inode.storage_type_ptr->getBlocks()) {
-      dstFile << decode_one(blkids.begin() + start,
-                            blkids.begin() + start + inode.storage_type_ptr->getBlocks(),
-                            inode.storage_type_ptr);
+      dstFile << decode_one(inode.storage_type_ptr, blkids.begin() + start,
+                            blkids.begin() + start + inode.storage_type_ptr->getBlocks());
     };
     dstFile.close();
     fs::resize_file(dst, inode.filesize);
@@ -267,8 +292,8 @@ namespace spkdfs {
   }
 
   inline pair<int, int> SDK::get_index(const Inode &inode, uint32_t offset, uint32_t size) {
-    return make_pair(align_index_down(offset, inode.storage_type_ptr->getBlockSize()),
-                     align_index_up(offset + size, inode.storage_type_ptr->getBlockSize()));
+    return make_pair(align_index_down(offset, inode.getBlockSize()),
+                     align_index_up(offset + size, inode.getBlockSize()));
   }
 
   std::string SDK::get_tmp_path(Inode inode) {
@@ -294,7 +319,7 @@ namespace spkdfs {
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
         tmp_str.resize(filesize);
-        ifstream dstFile(tmp_path, std::ios::in | std::ios::binary);
+        ifstream dstFile(tmp_path, std::ios::binary);
         if (!dstFile) {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
@@ -306,14 +331,14 @@ namespace spkdfs {
         dstFile.close();
 
       } else {
-        ofstream dstFile(tmp_path, std::ios::out | std::ios::binary);
+        ofstream dstFile(tmp_path, std::ios::binary);
         if (!dstFile) {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        tmp_str = decode_one(blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
-                             blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks(),
-                             inode.storage_type_ptr);
+        tmp_str = decode_one(inode.storage_type_ptr,
+                             blkids.begin() + index * inode.storage_type_ptr->getBlocks(),
+                             blkids.begin() + (index + 1) * inode.storage_type_ptr->getBlocks());
         dstFile << tmp_str;
         dstFile.close();
       }
@@ -328,24 +353,25 @@ namespace spkdfs {
     Inode inode = get_inode(path);
     pair<int, int> indexs = get_index(inode, offset, size);
     auto s = read_data(inode, indexs);
-    return string(
-        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize(),
-        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize() + size);
+    return string(s.begin() + offset - indexs.first * inode.getBlockSize(),
+                  s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }
 
   void SDK::write_data(const string &path, uint32_t offset, std::string s) {
     Inode inode = get_inode(path);
     pair<int, int> indexs = get_index(inode, offset, s.size());
-    string s1 = read_data(inode, make_pair(index.first, index.first + 1));
-    string s2 = read_data(inode, make_pair(index.second - 1, index.second));
+    string s1 = read_data(inode, make_pair(indexs.first, indexs.first + 1));
+    string s2 = read_data(inode, make_pair(indexs.second - 1, indexs.second));
     string res;
-    res.reserve((indexs.second - indexs.first) * inode.storage_type_ptr->getBlockSize());
-    res += string(s1.begein(),
-                  s1.begein() + offset - indexs.first * inode.storage_type_ptr->getBlockSize());
-    // string(s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize(),
-    //        s.begin() + offset - indexs.first * inode.storage_type_ptr->getBlockSize() + size);
+    res.reserve((indexs.second - indexs.first) * inode.getBlockSize());
+    res += string(s1.begin(), s1.begin() + offset - indexs.first * inode.getBlockSize());
+    res += s;
+    res += string(s2.begin() + offset + s.size(), s2.end());
+    write_data(inode, indexs.first, res);
+    // string(s.begin() + offset - indexs.first * inode.getBlockSize(),
+    //        s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }
-  void SDK::write_data(const Inode &inode, std::pair<int, int> indexs, string s) {}
+  void SDK::write_data(const Inode &inode, int start_index, string s) {}
   // std::string SDK::get_one_data(const Inode &inode, int index) {
   //   string res;
   //   cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
@@ -354,10 +380,8 @@ namespace spkdfs {
   //   for (int i = 0; i < index * inode.storage_type_ptr->getBlocks(); i++) {
   //     iter++;
   //   }
-  //   //  for (int index = offset / inode.storage_type_ptr->getBlockSize(); index < blkids.size();
+  //   //  for (int index = offset / inode.getBlockSize(); index < blkids.size();
   //   //              index += inode.storage_type_ptr->getBlocks()) {
-  //   return decode_one(iter, inode.sub.end(), inode.storage_type_ptr);
+  //   return decode_one(inode.storage_type_ptr, iter, inode.sub.end());
   // }
-
-  void put_part(const std::string &path, uint32_t offset, uint32_t size) {}
 }  // namespace spkdfs

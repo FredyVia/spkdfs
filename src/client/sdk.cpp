@@ -106,14 +106,23 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
+  inline std::string SDK::guess_storage_type() const { return "RS<3,2,16>"; }
+
   std::vector<std::string> SDK::get_datanodes() {
+    vector<string> res;
     brpc::Controller cntl;
     Request request;
     DNGetDatanodesResponse response;
     dn_stubs.begin()->second.second->get_datanodes(&cntl, &request, &response, NULL);
     check_response(cntl, response.common());
-    vector<Node> vec;
     for (const auto &node_str : response.nodes()) {
+      res.push_back(node_str);
+    }
+    return res;
+  }
+  std::vector<std::string> SDK::get_online_datanodes() {
+    vector<Node> vec;
+    for (const auto &node_str : get_datanodes()) {
       Node node;
       from_string(node_str, node);
       vec.push_back(node);
@@ -193,7 +202,7 @@ namespace spkdfs {
     return data;
   }
 
-  std::string SDK::put_to_datanode(const string &datanode, std::string block) {
+  std::string SDK::put_to_datanode(const string &datanode, const std::string &block) {
     string sha256sum = cal_sha256sum(block);
     cout << "sha256sum:" << sha256sum << endl;
     // 假设每个分块的大小是block.size() / k
@@ -208,9 +217,10 @@ namespace spkdfs {
     return sha256sum;
   }
 
-  std::string SDK::encode_one(std::shared_ptr<StorageType> storage_type_ptr, std::string block) {
+  std::string SDK::encode_one(std::shared_ptr<StorageType> storage_type_ptr,
+                              const std::string &block) {
     auto vec = storage_type_ptr->encode(block);
-    vector<string> nodes = get_datanodes();
+    vector<string> nodes = get_online_datanodes();
     string res;
     int node_index = 0, succ = 0;
     Controller cntl;
@@ -291,23 +301,43 @@ namespace spkdfs {
                      align_index_up(offset + size, inode.getBlockSize()));
   }
 
-  std::string SDK::get_tmp_path(Inode inode) const {
-    string dst_path = "/tmp/spkdfs/fuse/" + cal_md5sum(inode.fullpath);
+  void SDK::ln_write_index(const string &path, uint32_t index) const {
+    string dst_path = get_tmp_write_path(path);
+    createDirectoryIfNotExist(dst_path);
+    std::filesystem::create_hard_link(get_tmp_index_path(path, index),
+                                      dst_path + "/" + std::to_string(index));
+  }
+
+  inline std::string SDK::get_tmp_write_path(const string &path) const {
+    return get_tmp_path(path) + "/write";
+  }
+
+  inline std::string SDK::get_tmp_path(const string &path) const {
+    string dst_path = "/tmp/spkdfs/fuse/" + cal_md5sum(path);
     createDirectoryIfNotExist(dst_path);
     return dst_path;
   }
 
+  std::string SDK::get_tmp_index_path(const string &path, uint32_t index) const {
+    string dst_path = get_tmp_path(path);
+    return dst_path + "/" + std::to_string(index);
+  }
+
   std::string SDK::read_data(const Inode &inode, std::pair<int, int> indexs) {
-    string dst_path(get_tmp_path(inode));
     string tmp_path;
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
     auto iter = inode.sub.begin();
-    for (int i = 0; i < indexs.first; i++) iter++;
+    for (int i = 0; i < indexs.first; i++) {
+      iter++;
+      if (iter == inode.sub.end()) {
+        return "";
+      }
+    }
     std::ostringstream oss;
     string tmp_str;
     for (int index = indexs.first; index < indexs.second; index++) {
       string blks = *iter;
-      tmp_path = dst_path + "/" + std::to_string(index) + "_" + cal_md5sum(blks);
+      tmp_path = get_tmp_index_path(inode.fullpath, index);
       pathlocks.lock(tmp_path);
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
@@ -343,32 +373,64 @@ namespace spkdfs {
   std::string SDK::read_data(const string &path, uint32_t offset, uint32_t size) {
     string res;
     Inode inode = get_inode(path);
+    if (inode.filesize < offset) {
+      cout << "out of range: filesize: " << inode.filesize << ", offset: " << offset
+           << ", size: " << size << endl;
+      return "";
+    }
+    if (inode.filesize < offset + size) {
+      size = inode.filesize - offset;
+    }
     pair<int, int> indexs = get_indexs(inode, offset, size);
     auto s = read_data(inode, indexs);
     return string(s.begin() + offset - indexs.first * inode.getBlockSize(),
                   s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }
 
-  void SDK::write_data(const string &path, uint32_t offset, std::string s) {
+  void SDK::write_data(const string &path, uint32_t offset, const std::string &s) {
     Inode inode = get_inode(path);
+
+    int size = s.size();
+    auto iter = s.begin();
+
     pair<int, int> indexs = get_indexs(inode, offset, s.size());
-    string s1 = read_data(inode, make_pair(indexs.first, indexs.first + 1));
-    string s2 = read_data(inode, make_pair(indexs.second - 1, indexs.second));
-    string res;
-    res.reserve((indexs.second - indexs.first) * inode.getBlockSize());
-    res += string(s1.begin(), s1.begin() + offset - indexs.first * inode.getBlockSize());
-    res += s;
-    res += string(s2.begin() + offset + s.size(), s2.end());
-    write_data(inode, indexs.first, res);
-    // auto blkids = inode.blkids();
-    for (int i = indexs.first; i < indexs.second; i++) {
+    read_data(inode, make_pair(indexs.first, indexs.first + 1));
+    read_data(inode, make_pair(indexs.second - 1, indexs.second));
+
+    for (int index = indexs.first; index < indexs.second; index++) {
+      size_t left = index == indexs.first ? offset % inode.getBlockSize() : 0;
+      size_t right = index == indexs.second - 1 ? (offset + size) % inode.getBlockSize()
+                                                : inode.getBlockSize();
+      size_t localSize = right - left;
+      iter += localSize;
+
+      string dst = get_tmp_index_path(path, index);
+
+      ofstream dstFile(dst, std::ios::binary);
+      if (!dstFile) {
+        std::cout << "failed to write data to " << dst << std::endl;
+        throw runtime_error("failed to write data to " + dst);
+      }
+      dstFile << string(iter, iter + localSize);
+      dstFile.close();
+      ln_write_index(path, index);
     }
-    for (int i = indexs.second; i < indexs.second; i++) {
-    }
-    // string(s.begin() + offset - indexs.first * inode.getBlockSize(),
-    //        s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }
-  void SDK::write_data(const Inode &inode, int start_index, string s) {}
+
+  void SDK::create(const string &path) {
+    string dst_path = get_tmp_index_path(path, 0);
+    std::ofstream{dst_path};
+    put(dst_path, path, guess_storage_type());
+  }
+
+  // std::vector<std::string> SDK::write_data(const Inode &inode, int start_index,
+  //                                          const std::string &s) {
+  //   vector<string> res;
+  //   for (int i = 0; i < s.size(); i += inode.storage_type_ptr->getBlockSize()) {
+  //     res.push_back(encode_one(inode.storage_type_ptr, string()));
+  //   }
+  //   return res;
+  // }
   // std::string SDK::get_one_data(const Inode &inode, int index) {
   //   string res;
   //   cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;

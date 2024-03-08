@@ -156,8 +156,8 @@ namespace spkdfs {
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
-      if (request->filesize() <= 0) {
-        throw runtime_error("filesize <= 0");
+      if (request->filesize() < 0) {
+        throw runtime_error("filesize < 0");
       }
       Inode inode;
       inode.fullpath = request->path();

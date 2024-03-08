@@ -98,7 +98,7 @@ TEST(ClientTest, concurrency) {
   //   t.join();
   // }
 }
-TEST(CommonTest, alignup) {
+TEST(TestCommon, alignup) {
   vector<vector<int>> checks = {{2, 5, 0, 1}, {4, 5, 0, 1}, {5, 5, 1, 2}, {6, 5, 1, 2},
                                 {1, 2, 0, 1}, {2, 2, 1, 2}, {4, 2, 2, 3}, {5, 2, 2, 3}};
   for (auto& vec : checks) {
@@ -106,7 +106,7 @@ TEST(CommonTest, alignup) {
     EXPECT_EQ(align_index_up(vec[0], vec[1]), vec[3]);
   }
 }
-TEST(CommonTest, rethrow) {
+TEST(TestCommon, rethrow) {
   try {
     try {
       throw 20;
@@ -120,5 +120,16 @@ TEST(CommonTest, rethrow) {
   } catch (std::string const& ex) {
     EXPECT_EQ(1, 1);
     cout << "second string " << ex << endl;
+  }
+}
+TEST(SDKTest, read_data_edge) {}
+TEST(TestCommon, hash) {
+  // md5sum, sha256sum
+  vector<vector<string>> vec
+      = {{"", "D41D8CD98F00B204E9800998ECF8427E",
+          "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"}};
+  for (const auto& v : vec) {
+    EXPECT_EQ(cal_md5sum(v[0]), v[1]);
+    EXPECT_EQ(cal_sha256sum(v[0]), v[2]);
   }
 }

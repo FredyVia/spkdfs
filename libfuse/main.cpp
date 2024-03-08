@@ -165,6 +165,36 @@ public:
       return sdk->read_data(dst, offset, size);
     }
   }
+
+  void create(const string &dst) {
+    cout << "libfuse read :" << dst << endl;
+    try {
+      sdk->create(dst);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+      throw e;
+    } catch (const exception &e) {
+      cout << dst << endl;
+      cout << e.what() << endl;
+      reinit();
+      sdk->create(dst);
+    }
+  }
+
+  void write(const string &dst, uint32_t offset, const string &s) {
+    cout << "libfuse write :" << dst << endl;
+    try {
+      sdk->write_data(dst, offset, s);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+      throw e;
+    } catch (const exception &e) {
+      cout << dst << endl;
+      cout << e.what() << endl;
+      reinit();
+      sdk->write_data(dst, offset, s);
+    }
+  }
 };
 
 static struct options {
@@ -261,11 +291,11 @@ static int spkdfs_rm(const char *path) {
 
 static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
-  Inode inode = fuse_ptr->ls(path);
-  if (inode.is_directory) {
-    cout << "is directory" << endl;
-    throw runtime_error("is directory error" + string(path));
-  }
+  // Inode inode = fuse_ptr->ls(path);
+  // if (inode.is_directory) {
+  //   cout << "is directory" << endl;
+  //   throw runtime_error("is directory error" + string(path));
+  // }
 
   // if ((fi->flags & O_ACCMODE) != O_RDONLY) return -EACCES;
   // try {
@@ -282,10 +312,10 @@ static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
   try {
     string s = fuse_ptr->read(path, offset, size);
     memcpy(buff, s.data(), size);
-    return size;
   } catch (const exception &e) {
     return -ENOENT;
   }
+  return size;
   // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
 
   // len = strlen(options.contents);
@@ -295,19 +325,40 @@ static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
   // } else
   //   size = 0;
 }
-static int spkdfs_write(const char *, const char *, size_t size, off_t offset,
+static int spkdfs_write(const char *path, const char *data, size_t size, off_t offset,
                         struct fuse_file_info *) {
+  // sdk->write();
+  try {
+    string s(data, size);
+    fuse_ptr->write(path, offset, s);
+  } catch (const exception &e) {
+    return -EIO;
+  }
   return size;
+}
+
+int spkdfs_close(const char *path, struct fuse_file_info *) { return 0; }
+
+static int spkdfs_create(const char *path, mode_t, struct fuse_file_info *) {
+  try {
+    fuse_ptr->create(path);
+  } catch (const exception &e) {
+    return -EIO;
+  }
+  return 0;
 }
 static const struct fuse_operations spkdfs_oper = {
     .getattr = spkdfs_getattr,  // 316
     .mkdir = spkdfs_mkdir,      // 342
+    .unlink = spkdfs_rm,        // 345
     .rmdir = spkdfs_rm,         // 348
     .open = spkdfs_open,        // 441
     .read = spkdfs_read,        // 452
-    .write = spkdfs_write,
+    .write = spkdfs_write,      // 464
+    .release = spkdfs_close,    // 515
     .readdir = spkdfs_readdir,  // 561
     .init = spkdfs_init,        // 583
+    .create = spkdfs_create,    // 614
 };
 
 static void show_help(const char *progname) {

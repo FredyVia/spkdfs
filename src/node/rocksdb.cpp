@@ -24,7 +24,6 @@ namespace spkdfs {
         = BackupEngine::Open(Env::Default(), BackupEngineOptions(backup_dir), &backup_engine_ptr);
     LOG_IF(ERROR, !s.ok()) << s.ToString();
     assert(s.ok());
-    createDirectoryIfNotExist(db_dir);
     open();
   }
 

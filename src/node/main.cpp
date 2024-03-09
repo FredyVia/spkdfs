@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   createDirectoryIfNotExist(FLAGS_coredumps_dir);
   google_breakpad::MinidumpDescriptor descriptor(FLAGS_coredumps_dir);
+  createDirectoryIfNotExist(FLAGS_data_dir);
   auto nodes = parse_nodes(FLAGS_nodes);
   spkdfs::Server server(nodes);
   LOG(INFO) << "going to start server";

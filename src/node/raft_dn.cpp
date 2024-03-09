@@ -216,6 +216,7 @@ namespace spkdfs {
     }
     LOG(INFO) << "propose namenodes:";
     pretty_print(LOG(INFO), namenode_list);
+    return 0;
   }
   NNTimer::NNTimer(uint interval, const RunFuncType& runFunc, const TimeoutFuncType& timeoutFunc)
       : interval(interval), runFunc(runFunc), timeoutFunc(timeoutFunc) {

@@ -113,6 +113,7 @@ namespace spkdfs {
   int RaftNN::on_snapshot_load(braft::SnapshotReader* reader) {
     LOG(INFO) << "nn on_snapshot_load";
     db.load_snapshot();
+    return 0;
   }
   // void on_leader_start(int64_t term) {}
   // void on_leader_stop(const butil::Status& status) {}

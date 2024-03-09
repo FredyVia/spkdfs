@@ -224,7 +224,7 @@ static int spkdfs_getattr(const char *path, struct stat *stbuf, struct fuse_file
       stbuf->st_mode = S_IFDIR | 0755;
       stbuf->st_nlink = 2;
     } else {
-      stbuf->st_mode = S_IFREG | 0444;
+      stbuf->st_mode = S_IFREG | 0644;
       stbuf->st_nlink = 1;
       stbuf->st_size = inode.filesize;
     }
@@ -289,22 +289,7 @@ static int spkdfs_rm(const char *path) {
   return 0;
 }
 
-static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
-  // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
-  // Inode inode = fuse_ptr->ls(path);
-  // if (inode.is_directory) {
-  //   cout << "is directory" << endl;
-  //   throw runtime_error("is directory error" + string(path));
-  // }
-
-  // if ((fi->flags & O_ACCMODE) != O_RDONLY) return -EACCES;
-  // try {
-  // sdk->
-  // } catch (declaration) {
-  // statements
-  // }
-  return 0;
-}
+static int spkdfs_open(const char *path, struct fuse_file_info *fi) { return 0; }
 
 static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
                        struct fuse_file_info *fi) {
@@ -338,6 +323,7 @@ static int spkdfs_write(const char *path, const char *data, size_t size, off_t o
 }
 
 int spkdfs_close(const char *path, struct fuse_file_info *) { return 0; }
+int spkdfs_fsync(const char *path, int, struct fuse_file_info *) {}
 
 static int spkdfs_create(const char *path, mode_t, struct fuse_file_info *) {
   try {
@@ -356,6 +342,7 @@ static const struct fuse_operations spkdfs_oper = {
     .read = spkdfs_read,        // 452
     .write = spkdfs_write,      // 464
     .release = spkdfs_close,    // 515
+    .fsync = spkdfs_fsync,      // 522
     .readdir = spkdfs_readdir,  // 561
     .init = spkdfs_init,        // 583
     .create = spkdfs_create,    // 614

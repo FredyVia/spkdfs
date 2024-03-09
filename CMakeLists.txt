@@ -38,7 +38,7 @@ find_package(cryptopp CONFIG REQUIRED)
 
 pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
 
-pkg_check_modules(FUSE3 REQUIRED fuse3)
+pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET GLOBAL fuse3)
 
 # 指定 protobuf 文件
 set(PROTO_FILE src/common/service.proto)
@@ -70,6 +70,6 @@ target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR
 target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static PkgConfig::LIBERASURECODE fuse3 cryptopp::cryptopp)
+target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
 
 enable_testing()

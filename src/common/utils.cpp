@@ -2,6 +2,7 @@
 
 #include <cryptopp/filters.h>
 #include <cryptopp/hex.h>
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/md5.h>
 #include <cryptopp/sha.h>
 #include <glog/logging.h>
@@ -35,7 +36,7 @@ namespace spkdfs {
 
   std::string cal_md5sum(std::string data) {
     string md5sum;
-    CryptoPP::MD5 md5;
+    CryptoPP::Weak1::MD5 md5;
     CryptoPP::StringSource ss(
         data, true,
         new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(md5sum))));

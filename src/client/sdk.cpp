@@ -139,6 +139,13 @@ namespace spkdfs {
     return res;
   }
 
+  void SDK::open(const std::string &path, bool readonly) {
+    createDirectoryIfNotExist(get_tmp_path(path));
+    if (!readonly) {
+      createDirectoryIfNotExist(get_tmp_write_path(path));
+    }
+  }
+
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
                 const std::string &storage_type) {
     shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(storage_type);
@@ -301,11 +308,13 @@ namespace spkdfs {
                      align_index_up(offset + size, inode.getBlockSize()));
   }
 
-  void SDK::ln_write_index(const string &path, uint32_t index) const {
-    string dst_path = get_tmp_write_path(path);
-    createDirectoryIfNotExist(dst_path);
+  void SDK::ln_path_index(const std::string &path, uint32_t index) const {
     std::filesystem::create_hard_link(get_tmp_index_path(path, index),
-                                      dst_path + "/" + std::to_string(index));
+                                      get_ln_path_index(path, index));
+  }
+
+  inline std::string SDK::get_ln_path_index(const std::string &path, uint32_t index) const {
+    return get_tmp_write_path(path) + "/" + std::to_string(index);
   }
 
   inline std::string SDK::get_tmp_write_path(const string &path) const {
@@ -313,9 +322,7 @@ namespace spkdfs {
   }
 
   inline std::string SDK::get_tmp_path(const string &path) const {
-    string dst_path = "/tmp/spkdfs/fuse/" + cal_md5sum(path);
-    createDirectoryIfNotExist(dst_path);
-    return dst_path;
+    return "/tmp/spkdfs/fuse/" + cal_md5sum(path);
   }
 
   std::string SDK::get_tmp_index_path(const string &path, uint32_t index) const {
@@ -413,7 +420,7 @@ namespace spkdfs {
       }
       dstFile << string(iter, iter + localSize);
       dstFile.close();
-      ln_write_index(path, index);
+      ln_path_index(path, index);
     }
   }
 

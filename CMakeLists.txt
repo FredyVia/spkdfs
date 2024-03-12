@@ -67,9 +67,9 @@ target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${D
 target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
-target_link_libraries(node unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(client gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-static gflags::gflags unofficial::brpc::brpc-static nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-static PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
+target_link_libraries(node unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(client gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp glog::glog)
+target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
 
 enable_testing()

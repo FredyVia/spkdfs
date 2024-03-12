@@ -323,7 +323,7 @@ static int spkdfs_write(const char *path, const char *data, size_t size, off_t o
 }
 
 int spkdfs_close(const char *path, struct fuse_file_info *) { return 0; }
-int spkdfs_fsync(const char *path, int, struct fuse_file_info *) {}
+int spkdfs_fsync(const char *path, int, struct fuse_file_info *) { return 0; }
 
 static int spkdfs_create(const char *path, mode_t, struct fuse_file_info *) {
   try {

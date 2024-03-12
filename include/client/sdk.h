@@ -19,10 +19,12 @@ namespace spkdfs {
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
     PathLocks pathlocks;
     DatanodeService_Stub* get_dn_stub(const std::string& node);
+    void open(const std::string& path, bool readonly = true);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);
     inline std::pair<int, int> get_indexs(const Inode& inode, uint32_t offset, uint32_t size) const;
-    void ln_write_index(const std::string& path, uint32_t index) const;
+    void ln_path_index(const std::string& path, uint32_t index) const;
+    inline std::string get_ln_path_index(const std::string& path, uint32_t index) const;
     inline std::string get_tmp_write_path(const std::string& path) const;
     inline std::string get_tmp_path(const std::string& path) const;
     std::string get_tmp_index_path(const std::string& path, uint32_t index) const;

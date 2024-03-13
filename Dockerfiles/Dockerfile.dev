@@ -1,7 +1,3 @@
-FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest
+FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_node:latest
 ARG DST
-RUN mkdir /spkdfs && mkdir /spkdfs/bin && mkdir /spkdfs/data && mkdir /spkdfs/logs && mkdir /spkdfs/coredumps
-COPY ${DST} /spkdfs/bin/node
-ENTRYPOINT [ "/bin/sh", "-c", "export LD_LIBRARY_PATH=/vcpkg/installed/x64-linux-dynamic/lib:${LD_LIBRARY_PATH} && exec /spkdfs/bin/node \"$@\"", "--"]
-
-# 设置默认的CMD
+COPY ${DST} /node

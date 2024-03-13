@@ -7,7 +7,7 @@ RUN apt update && apt install -y --no-install-recommends crossbuild-essential-${
 COPY . /spkdfs
 COPY --from=vcpkg_source /vcpkg /vcpkg
 WORKDIR /spkdfs
-ENV ENV_FILE="/etc/profile"
+ENV ENV_FILE="/env.sh"
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
   echo 'export COMPILER=/usr/bin/x86_64-linux-gnu-g++' >> ${ENV_FILE} && \
   echo 'export TRIPLET=x64-linux-dynamic' >> ${ENV_FILE}; \
@@ -23,8 +23,11 @@ RUN . ${ENV_FILE} && cmake -S . -B build \
   -DVCPKG_TARGET_TRIPLET=${TRIPLET} \
   -DCMAKE_CXX_COMPILER=${COMPILER} \
   -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && \
-  cmake --build build -j $(nproc)
+  cmake --build build -j $(nproc) && \
+  mv /vcpkg/installed/${TRIPLET}/lib /vcpkg_lib
 
-FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest
+FROM --platform=$TARGETPLATFORM ubuntu:22.04
 COPY --from=builder /spkdfs/build/node /node
+COPY --from=builder /vcpkg_lib/* /lib
 ENTRYPOINT [ "/node" ]
+CMD [ "--help" ]

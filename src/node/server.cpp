@@ -8,16 +8,19 @@
 
 #include "common/node.h"
 #include "common/service.h"
+#include "common/utils.h"
 
 namespace spkdfs {
   using namespace std;
   using namespace braft;
 
   Server::Server(const std::vector<Node>& nodes) {
-    dn_raft_ptr
-        = new RaftDN(nodes, std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
+    my_ip = get_my_ip(nodes);
+    LOG(INFO) << "my_ip: " << my_ip << endl;
+    dn_raft_ptr = new RaftDN(my_ip, nodes,
+                             std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
     CommonServiceImpl* dn_common_service_ptr = new CommonServiceImpl();
-    DatanodeServiceImpl* dn_service_ptr = new DatanodeServiceImpl(dn_raft_ptr);
+    DatanodeServiceImpl* dn_service_ptr = new DatanodeServiceImpl(my_ip, dn_raft_ptr);
     if (dn_server.AddService(dn_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
       throw runtime_error("server failed to add dn service");
     }
@@ -29,9 +32,8 @@ namespace spkdfs {
     }
   }
   void Server::on_namenodes_change(const std::vector<Node>& namenodes) {
-    LOG(INFO) << "butil::my_ip_cstr(): " << butil::my_ip_cstr();
     bool found = any_of(namenodes.begin(), namenodes.end(),
-                        [](const Node& node) { return node.ip == butil::my_ip_cstr(); });
+                        [this](const Node& node) { return node.ip == my_ip; });
     if (found) {
       LOG(INFO) << "I'm in namenodes list";
       if (nn_raft_ptr != nullptr) {
@@ -40,9 +42,9 @@ namespace spkdfs {
         return;
       }
       LOG(INFO) << "start new namenode";
-      nn_raft_ptr = new RaftNN(namenodes);
+      nn_raft_ptr = new RaftNN(my_ip, namenodes);
       CommonServiceImpl* nn_common_service_ptr = new CommonServiceImpl();
-      NamenodeServiceImpl* nn_service_ptr = new NamenodeServiceImpl(nn_raft_ptr);
+      NamenodeServiceImpl* nn_service_ptr = new NamenodeServiceImpl(my_ip, nn_raft_ptr);
 
       if (nn_server.AddService(nn_common_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
         throw runtime_error("server failed to add common nn service");
@@ -73,7 +75,7 @@ namespace spkdfs {
     while (true) {
       brpc::Channel channel;
       brpc::ChannelOptions options;
-      if (channel.Init(butil::my_ip_cstr(), FLAGS_dn_port, &options) != 0) {
+      if (channel.Init(my_ip.c_str(), FLAGS_dn_port, &options) != 0) {
         throw runtime_error("init channel failed");
       }
       brpc::Controller cntl;

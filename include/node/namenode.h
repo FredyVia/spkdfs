@@ -31,7 +31,8 @@ namespace spkdfs {
 
   class NamenodeServiceImpl : public NamenodeService {
   public:
-    NamenodeServiceImpl(RaftNN* nn_raft_ptr) : nn_raft_ptr(nn_raft_ptr) {}
+    NamenodeServiceImpl(const std::string& my_ip, RaftNN* nn_raft_ptr)
+        : my_ip(my_ip), nn_raft_ptr(nn_raft_ptr) {}
     void ls(::google::protobuf::RpcController* controller, const NNPathRequest* request,
             NNLsResponse* response, ::google::protobuf::Closure* done) override;
     void mkdir(::google::protobuf::RpcController* controller, const NNPathRequest* request,
@@ -49,6 +50,7 @@ namespace spkdfs {
     //                 override;
 
   private:
+    std::string my_ip;
     // IsLeaderCallbackType isLeaderCallback;
     RaftNN* nn_raft_ptr;
   };

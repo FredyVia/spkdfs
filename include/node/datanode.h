@@ -15,7 +15,8 @@
 namespace spkdfs {
   class DatanodeServiceImpl : public DatanodeService {
   public:
-    DatanodeServiceImpl(RaftDN* dn_raft_ptr) : dn_raft_ptr(dn_raft_ptr){};
+    DatanodeServiceImpl(const std::string& my_ip, RaftDN* dn_raft_ptr)
+        : my_ip(my_ip), dn_raft_ptr(dn_raft_ptr){};
     // void set_namenode_master(Node node);
     void put(::google::protobuf::RpcController* controller, const DNPutRequest* request,
              CommonResponse* response, ::google::protobuf::Closure* done) override;
@@ -29,6 +30,8 @@ namespace spkdfs {
                        ::google::protobuf::Closure* done) override;
 
   private:
+    std::string my_ip;
+
     // void check_status();
     RaftDN* dn_raft_ptr;
     // Node namenode_master;

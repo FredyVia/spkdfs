@@ -61,7 +61,7 @@ namespace spkdfs {
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }
-      if (leader.ip != butil::my_ip_cstr()) {
+      if (leader.ip != my_ip) {
         response->mutable_common()->set_success(false);
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
         return;
@@ -105,7 +105,7 @@ namespace spkdfs {
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }
-      if (leader.ip != butil::my_ip_cstr()) {
+      if (leader.ip != my_ip) {
         response->mutable_common()->set_success(false);
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
         return;
@@ -148,7 +148,7 @@ namespace spkdfs {
       if (!leader.valid()) {
         throw runtime_error("leader not ready");
       }
-      if (leader.ip != butil::my_ip_cstr()) {
+      if (leader.ip != my_ip) {
         response->mutable_common()->set_success(false);
         *(response->mutable_common()->mutable_redirect()) = to_string(leader);
         return;

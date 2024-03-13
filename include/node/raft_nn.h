@@ -16,13 +16,15 @@ namespace spkdfs {
   enum OpType { OP_MKDIR, OP_PUT, OP_PUTOK, OP_RM, OP_UNKNOWN };
   class RaftNN : public braft::StateMachine {
   private:
+    std::string my_ip;
+
     RocksDB db;
     braft::NodeOptions node_options;
     braft::Node* volatile raft_node;
 
   public:
     void change_peers(const std::vector<Node>& namenodes);
-    RaftNN(const std::vector<Node>& nodes);
+    RaftNN(const std::string& my_ip, const std::vector<Node>& nodes);
     ~RaftNN();
     void start();
     // bool is_leader() const;

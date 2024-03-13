@@ -3,16 +3,69 @@
 #include <cryptopp/filters.h>
 #include <cryptopp/hex.h>
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+#include <arpa/inet.h>
 #include <cryptopp/md5.h>
 #include <cryptopp/sha.h>
 #include <glog/logging.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
 
 #include <filesystem>
+#include <set>
 
 namespace spkdfs {
   using namespace std;
+  std::set<std::string> get_all_ips() {
+    std::set<std::string> res;
+    struct ifaddrs *interfaces = nullptr;
+    struct ifaddrs *addr = nullptr;
+    void *tmpAddrPtr = nullptr;
 
-  void createDirectoryIfNotExist(const std::string& dir) {
+    if (getifaddrs(&interfaces) == -1) {
+      throw runtime_error("get_all_ips getifaddrs failed");
+    }
+
+    LOG(INFO) << "get_all_ips:";
+    for (addr = interfaces; addr != nullptr; addr = addr->ifa_next) {
+      if (addr->ifa_addr->sa_family == AF_INET) {  // check it is IP4
+        // is a valid IP4 Address
+        tmpAddrPtr = &((struct sockaddr_in *)addr->ifa_addr)->sin_addr;
+        char addressBuffer[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+        LOG(INFO) << addr->ifa_name << " IP Address: " << addressBuffer;
+        res.insert(addressBuffer);
+        // } else if (addr->ifa_addr->sa_family == AF_INET6) {  // not support IP6 curr
+        //   // is a valid IP6 Address
+        //   tmpAddrPtr = &((struct sockaddr_in6 *)addr->ifa_addr)->sin6_addr;
+        //   char addressBuffer[INET6_ADDRSTRLEN];
+        //   inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
+        //   std::cout << addr->ifa_name << " IP Address: " << addressBuffer << std::endl;
+      }
+    }
+
+    if (interfaces) {
+      freeifaddrs(interfaces);
+    }
+  }
+
+  std::string get_my_ip(const std::vector<Node> &vec) {
+    set<string> nodes;
+    for (const auto &node : vec) {
+      nodes.insert(node.ip);
+    }
+    set<string> local = get_all_ips();
+    std::set<string> intersection;
+    // 使用 std::set_intersection 查找交集
+    std::set_intersection(nodes.begin(), nodes.end(), local.begin(), local.end(),
+                          std::inserter(intersection, intersection.begin()));
+    LOG(INFO) << "using ip";
+    for (auto &str : intersection) {
+      LOG(INFO) << str << ", ";
+    }
+    return *(intersection.begin());
+  }
+
+  void createDirectoryIfNotExist(const std::string &dir) {
     filesystem::path dirPath{dir};
     error_code ec;  // 用于接收错误码
 

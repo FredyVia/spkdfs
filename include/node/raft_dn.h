@@ -49,6 +49,7 @@ namespace spkdfs {
   using DNApplyCallbackType = std::function<void(const std::vector<Node>&)>;
   class RaftDN : public braft::StateMachine {
   private:
+    std::string my_ip;
     braft::Node* volatile raft_node;
     std::vector<Node> namenode_list;
     std::vector<Node> datanode_list;
@@ -59,7 +60,8 @@ namespace spkdfs {
     NNTimer* nn_timer = nullptr;
 
   public:
-    RaftDN(const std::vector<Node>& nodes, DNApplyCallbackType applyCallback);
+    RaftDN(const std::string& my_ip, const std::vector<Node>& nodes,
+           DNApplyCallbackType applyCallback);
     ~RaftDN();
 
     void start();

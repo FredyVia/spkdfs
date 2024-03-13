@@ -13,8 +13,8 @@ namespace spkdfs {
   using namespace std;
   using namespace spkdfs;
   using json = nlohmann::json;
-  RaftNN::RaftNN(const vector<Node>& nodes) : db(FLAGS_data_dir + "/db") {
-    butil::EndPoint addr(butil::my_ip(), FLAGS_nn_port);
+  RaftNN::RaftNN(const std::string& my_ip, const vector<Node>& nodes)
+      : my_ip(my_ip), db(FLAGS_data_dir + "/db") {
     node_options.fsm = this;
     node_options.node_owns_fsm = false;
     std::string prefix = "local://" + FLAGS_data_dir + "/namenode";
@@ -23,7 +23,7 @@ namespace spkdfs {
     node_options.snapshot_uri = prefix + "/snapshot";
     node_options.disable_cli = true;
     node_options.initial_conf.parse_from(to_string(nodes));
-    raft_node = new braft::Node("RaftNN", braft::PeerId(addr));
+    raft_node = new braft::Node("RaftNN", Node(my_ip, FLAGS_nn_port).to_peerid());
   }
 
   Node RaftNN::leader() {
@@ -31,7 +31,7 @@ namespace spkdfs {
     braft::PeerId leader = raft_node->leader_id();
     if (leader.is_empty()) {
       LOG(INFO) << "I'm leader";
-      node.ip = butil::my_ip_cstr();
+      node.ip = my_ip;
       node.port = FLAGS_nn_port;
     } else {
       node.from_peerId(leader);

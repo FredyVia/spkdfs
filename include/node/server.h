@@ -23,6 +23,7 @@ namespace spkdfs {
     void start();
 
   private:
+    std::string my_ip;
     brpc::Server nn_server;
     brpc::Server dn_server;
     // brpc::Server dn_rpc_server;

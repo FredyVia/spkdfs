@@ -17,8 +17,9 @@ namespace spkdfs {
   using namespace dbg;
   using json = nlohmann::json;
 
-  RaftDN::RaftDN(const std::vector<Node>& _nodes, DNApplyCallbackType applyCallback)
-      : applyCallback(applyCallback) {
+  RaftDN::RaftDN(const std::string& my_ip, const std::vector<Node>& _nodes,
+                 DNApplyCallbackType applyCallback)
+      : my_ip(my_ip), applyCallback(applyCallback) {
     datanode_list = _nodes;
     for (auto& node : datanode_list) {
       node.port = FLAGS_dn_port;
@@ -37,8 +38,8 @@ namespace spkdfs {
                    [](const Node& node) { return node.to_peerid(); });
     node_options.initial_conf = braft::Configuration(peer_ids);
 
-    butil::EndPoint addr(butil::my_ip(), FLAGS_dn_port);
-    raft_node = new braft::Node("RaftDN", braft::PeerId(addr));
+    butil::EndPoint addr;
+    raft_node = new braft::Node("RaftDN", Node(my_ip, FLAGS_dn_port).to_peerid());
   }
 
   RaftDN::~RaftDN() { delete raft_node; }
@@ -66,7 +67,7 @@ namespace spkdfs {
     auto _json = json::parse(data_str);
     namenode_list = _json.get<vector<Node>>();
     applyCallback(namenode_list);
-    if (leader().ip != butil::my_ip_cstr()) {
+    if (leader().ip != my_ip) {
       if (nn_timer != nullptr) {
         LOG(INFO) << "stop nn_timer";
         delete nn_timer;
@@ -174,7 +175,7 @@ namespace spkdfs {
     braft::PeerId leader = raft_node->leader_id();
     if (leader.is_empty()) {
       LOG(INFO) << "I'm leader";
-      node.ip = butil::my_ip_cstr();
+      node.ip = my_ip;
       node.port = FLAGS_nn_port;
     } else {
       node.from_peerId(leader);

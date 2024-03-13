@@ -1,7 +1,11 @@
 #ifndef UTILS_H
 #define UTILS_H
 #include <string>
+#include <vector>
+
+#include "common/node.h"
 namespace spkdfs {
+  std::string get_my_ip(const std::vector<Node>& vec);
   inline int align_index_up(int n, int alignment) { return n / alignment + 1; };
   inline int align_index_down(int n, int alignment) { return n / alignment; };
   void createDirectoryIfNotExist(const std::string& dir);

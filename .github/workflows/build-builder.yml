@@ -32,4 +32,4 @@ jobs:
         file: Dockerfiles/Dockerfile.builder
         platforms: linux/amd64
         push: true
-        tags: ${{ secrets.ALIYUN_REGISTRY }}/little_bee/spkdfs_build:${{ github.event.inputs.tag }}
+        tags: ${{ secrets.ALIYUN_REGISTRY }}/little_bee/spkdfs_builder:${{ github.event.inputs.tag }}

@@ -1,6 +1,6 @@
 FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest AS vcpkg_source
 
-FROM --platform=$BUILDPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_build:latest AS builder
+FROM --platform=$BUILDPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_builder:latest AS builder
 ARG TARGETARCH
 ARG TARGETPLATFORM
 RUN apt update && apt install -y --no-install-recommends crossbuild-essential-${TARGETARCH} && apt clean;
@@ -16,6 +16,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
   else \
   echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
   fi
+
 RUN . ${ENV_FILE} && cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Debug \
   -DVCPKG_TARGET_TRIPLET=${TRIPLET} \
@@ -25,5 +26,4 @@ RUN . ${ENV_FILE} && cmake -S . -B build \
 
 FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest
 COPY --from=builder /spkdfs/build/node /node
-ENV LD_LIBRARY_PATH="/vcpkg:${LD_LIBRARY_PATH}"
 ENTRYPOINT [ "/node" ]

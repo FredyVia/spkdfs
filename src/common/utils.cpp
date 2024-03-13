@@ -27,6 +27,9 @@ namespace spkdfs {
 
     LOG(INFO) << "get_all_ips:";
     for (addr = interfaces; addr != nullptr; addr = addr->ifa_next) {
+      if (addr->ifa_addr == nullptr) {
+        continue;
+      }
       if (addr->ifa_addr->sa_family == AF_INET) {  // check it is IP4
         // is a valid IP4 Address
         tmpAddrPtr = &((struct sockaddr_in *)addr->ifa_addr)->sin_addr;
@@ -39,13 +42,14 @@ namespace spkdfs {
         //   tmpAddrPtr = &((struct sockaddr_in6 *)addr->ifa_addr)->sin6_addr;
         //   char addressBuffer[INET6_ADDRSTRLEN];
         //   inet_ntop(AF_INET6, tmpAddrPtr, addressBuffer, INET6_ADDRSTRLEN);
-        //   std::cout << addr->ifa_name << " IP Address: " << addressBuffer << std::endl;
+        //   std::cout << addr->ifa_name << " IP Address: " << addressBuffer;
       }
     }
 
     if (interfaces) {
       freeifaddrs(interfaces);
     }
+    return res;
   }
 
   std::string get_my_ip(const std::vector<Node> &vec) {
@@ -73,7 +77,7 @@ namespace spkdfs {
     if (!filesystem::create_directories(dirPath, ec)) {
       if (ec) {
         LOG(ERROR) << "Error: Unable to create directory " << dir << ". " << ec.message();
-        throw runtime_error("mkdir error: " + ec.message());
+        throw runtime_error("mkdir error: " + dir + ec.message());
       }
     }
   }

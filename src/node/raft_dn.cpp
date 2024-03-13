@@ -2,6 +2,7 @@
 
 #include <brpc/closure_guard.h>
 #include <butil/logging.h>
+#define DBG_MACRO_NO_WARNING
 #include <dbg.h>
 
 #include <algorithm>
@@ -101,7 +102,7 @@ namespace spkdfs {
   }
   // my onw callback, not override
   void RaftDN::on_nodes_loss(const vector<Node>& node) {
-    LOG(INFO) << "on_nodes_loss" << endl;
+    LOG(INFO) << "on_nodes_loss";
     on_leader_start(0);
   }
 

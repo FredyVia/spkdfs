@@ -19,49 +19,49 @@
 namespace spkdfs {
   class StorageType {
   protected:
-    uint32_t b;  // MB
+    int b;  // MB
 
   public:
-    StorageType(uint32_t b) : b(b){};
+    StorageType(int b) : b(b){};
     virtual std::string to_string() const = 0;
     virtual void to_json(nlohmann::json& j) const = 0;
     virtual std::vector<std::string> encode(const std::string& data) const = 0;
     virtual std::string decode(std::vector<std::string> vec) const = 0;
     virtual bool check(int success) const = 0;
     static std::shared_ptr<StorageType> from_string(const std::string& input);
-    inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
-    virtual uint32_t getBlocks() = 0;
-    virtual uint32_t getDecodeBlocks() = 0;
+    inline virtual int getBlockSize() { return b * 1024 * 1024; }
+    virtual int getBlocks() = 0;
+    virtual int getDecodeBlocks() = 0;
     virtual ~StorageType(){};
   };
   class RSStorageType : public StorageType {
   public:
-    uint32_t k;
-    uint32_t m;
+    int k;
+    int m;
 
-    RSStorageType(uint32_t k, uint32_t m, uint32_t b) : k(k), m(m), StorageType(b){};
+    RSStorageType(int k, int m, int b) : k(k), m(m), StorageType(b){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
     std::string decode(std::vector<std::string> vec) const override;
     bool check(int success) const override;
-    // inline virtual uint32_t getBlockSize() { return b * 1024 * 1024; }
-    inline virtual uint32_t getBlocks() { return k + m; }
-    virtual uint32_t getDecodeBlocks() { return k; }
+    // inline virtual int getBlockSize() { return b * 1024 * 1024; }
+    inline virtual int getBlocks() { return k + m; }
+    virtual int getDecodeBlocks() { return k; }
   };
 
   class REStorageType : public StorageType {
   private:
   public:
-    uint32_t replications;
-    REStorageType(uint32_t replications, uint32_t b) : replications(replications), StorageType(b){};
+    int replications;
+    REStorageType(int replications, int b) : replications(replications), StorageType(b){};
     std::string to_string() const override;
     void to_json(nlohmann::json& j) const override;
     std::vector<std::string> encode(const std::string& data) const override;
     std::string decode(std::vector<std::string> vec) const override;
     bool check(int success) const override;
-    inline virtual uint32_t getBlocks() { return replications; }
-    virtual uint32_t getDecodeBlocks() { return 1; }
+    inline virtual int getBlocks() { return replications; }
+    virtual int getDecodeBlocks() { return 1; }
   };
 
   inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
@@ -78,13 +78,13 @@ namespace spkdfs {
   public:
     std::string fullpath;
     bool is_directory;
-    uint32_t filesize;
+    int filesize;
     std::shared_ptr<StorageType> storage_type_ptr;
     std::set<std::string> sub;  // sub directory for directory or blks for file
     bool valid;
     bool building;
-    // uint32_t modification_time;
-    inline uint32_t getBlockSize() const {
+    // int modification_time;
+    inline int getBlockSize() const {
       return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
     }
     inline std::string filename() const {

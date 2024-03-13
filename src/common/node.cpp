@@ -4,6 +4,7 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 #include <brpc/server.h>      // brpc::Server
+#define DBG_MACRO_NO_WARNING
 #include <dbg.h>
 #include <glog/logging.h>
 

@@ -38,17 +38,13 @@ compose_body = """
     hostname: node${INDEX}
     command:
       [
-        "--flagfile",
-        "/spkdfs/node.conf"
+        "--flagfile=/spkdfs/node.conf"
       ]
     volumes:
       - ./tmp/spkdfs_${INDEX}/data:/spkdfs/data
       - ./tmp/spkdfs_${INDEX}/coredumps:/spkdfs/coredumps
       - ./tmp/spkdfs_${INDEX}/logs:/spkdfs/logs
-      - ./tmp/node.conf:/spkdfs/spkdfs.conf:ro
-    ports:
-      - "${INDEX}800:8000"
-      - "${INDEX}801:8001"
+      - ./node.conf:/spkdfs/node.conf:ro
     networks:
       spkdfs_net:
         ipv4_address: ${IP}

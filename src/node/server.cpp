@@ -16,7 +16,7 @@ namespace spkdfs {
 
   Server::Server(const std::vector<Node>& nodes) {
     my_ip = get_my_ip(nodes);
-    LOG(INFO) << "my_ip: " << my_ip << endl;
+    LOG(INFO) << "my_ip: " << my_ip;
     dn_raft_ptr = new RaftDN(my_ip, nodes,
                              std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
     CommonServiceImpl* dn_common_service_ptr = new CommonServiceImpl();

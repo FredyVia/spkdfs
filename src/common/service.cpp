@@ -1,6 +1,7 @@
 #include "common/service.h"
 
 #include <brpc/closure_guard.h>
+#define DBG_MACRO_NO_WARNING
 #include <dbg.h>
 
 #include <sstream>

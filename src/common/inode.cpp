@@ -14,13 +14,13 @@ namespace spkdfs {
     std::smatch match;
     if (std::regex_match(input, match, pattern)) {
       if (match[1].matched) {
-        uint32_t k = std::stoi(match[1]);
-        uint32_t m = std::stoi(match[2]);
-        uint32_t b = std::stoi(match[3]);
+        int k = std::stoi(match[1]);
+        int m = std::stoi(match[2]);
+        int b = std::stoi(match[3]);
         return std::make_shared<RSStorageType>(k, m, b);
       } else if (match[4].matched) {
-        uint32_t replications = std::stoi(match[4]);
-        uint32_t b = std::stoi(match[5]);
+        int replications = std::stoi(match[4]);
+        int b = std::stoi(match[5]);
         return std::make_shared<REStorageType>(replications, b);
       }
     }
@@ -30,13 +30,13 @@ namespace spkdfs {
   void from_json(const json& j, std::shared_ptr<StorageType>& ptr) {
     std::string type = j.at("type").get<string>();
     if (type == "RS") {
-      uint32_t k = j.at("k").get<uint32_t>();
-      uint32_t m = j.at("m").get<uint32_t>();
-      uint32_t b = j.at("b").get<uint32_t>();
+      int k = j.at("k").get<int>();
+      int m = j.at("m").get<int>();
+      int b = j.at("b").get<int>();
       ptr = std::make_shared<RSStorageType>(k, m, b);
     } else if (type == "RE") {
-      uint32_t replications = j.at("replications").get<uint32_t>();
-      uint32_t b = j.at("b").get<uint32_t>();
+      int replications = j.at("replications").get<int>();
+      int b = j.at("b").get<int>();
       ptr = std::make_shared<REStorageType>(replications, b);
     } else {
       LOG(ERROR) << type;

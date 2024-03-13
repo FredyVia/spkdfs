@@ -9,6 +9,8 @@
 #include <glog/logging.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
+#define DBG_MACRO_NO_WARNING
+#include <dbg.h>
 
 #include <filesystem>
 #include <set>
@@ -36,7 +38,7 @@ namespace spkdfs {
         char addressBuffer[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
         LOG(INFO) << addr->ifa_name << " IP Address: " << addressBuffer;
-        res.insert(addressBuffer);
+        res.insert(string(addressBuffer));
         // } else if (addr->ifa_addr->sa_family == AF_INET6) {  // not support IP6 curr
         //   // is a valid IP6 Address
         //   tmpAddrPtr = &((struct sockaddr_in6 *)addr->ifa_addr)->sin6_addr;
@@ -65,6 +67,13 @@ namespace spkdfs {
     LOG(INFO) << "using ip";
     for (auto &str : intersection) {
       LOG(INFO) << str << ", ";
+    }
+    if (intersection.size() == 0) {
+      LOG(ERROR) << "cluster ips: ";
+      dbg::pretty_print(LOG(ERROR), nodes);
+      LOG(ERROR) << "local ips: ";
+      dbg::pretty_print(LOG(ERROR), local);
+      throw runtime_error("cannot find equal ips");
     }
     return *(intersection.begin());
   }

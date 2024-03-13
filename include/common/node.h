@@ -13,7 +13,7 @@ namespace spkdfs {
   class Node {
   public:
     std::string ip;
-    int port;
+    int port = 0;
     NodeStatus nodeStatus;
     Node(std::string ip = "", int port = 0, NodeStatus nodeStatus = NodeStatus::UNKNOWN);
     void scan();

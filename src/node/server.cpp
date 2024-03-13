@@ -31,6 +31,7 @@ namespace spkdfs {
       throw runtime_error("server failed to add dn service");
     }
   }
+
   void Server::on_namenodes_change(const std::vector<Node>& namenodes) {
     bool found = any_of(namenodes.begin(), namenodes.end(),
                         [this](const Node& node) { return node.ip == my_ip; });
@@ -71,6 +72,7 @@ namespace spkdfs {
       nn_server.ClearServices();
     }
   }
+
   void Server::waiting_for_rpc() {
     while (true) {
       brpc::Channel channel;
@@ -89,6 +91,7 @@ namespace spkdfs {
       if (!cntl.Failed()) break;
     }
   }
+
   void Server::start() {
     if (dn_server.Start(FLAGS_dn_port, NULL) != 0) {
       LOG(ERROR) << "Fail to start Server";

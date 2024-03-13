@@ -15,7 +15,6 @@
 #include "node/config.h"
 namespace spkdfs {
   using namespace std;
-  using namespace dbg;
   using json = nlohmann::json;
 
   RaftDN::RaftDN(const std::string& my_ip, const std::vector<Node>& _nodes,
@@ -38,8 +37,6 @@ namespace spkdfs {
     std::transform(datanode_list.begin(), datanode_list.end(), std::back_inserter(peer_ids),
                    [](const Node& node) { return node.to_peerid(); });
     node_options.initial_conf = braft::Configuration(peer_ids);
-
-    butil::EndPoint addr;
     raft_node = new braft::Node("RaftDN", Node(my_ip, FLAGS_dn_port).to_peerid());
   }
 
@@ -48,6 +45,7 @@ namespace spkdfs {
   void RaftDN::start() {
     // 实现细节
     if (raft_node->init(node_options) != 0) {
+      google::FlushLogFiles(google::INFO);
       LOG(ERROR) << "Fail to init raft node";
       throw runtime_error("raft datanode init failed");
     }
@@ -120,11 +118,11 @@ namespace spkdfs {
                        [](const Node& node) { return node.nodeStatus != NodeStatus::ONLINE; }),
         nodes.end());
     LOG(INFO) << "online nodes";
-    pretty_print(LOG(INFO), nodes);
+    dbg::pretty_print(LOG(INFO), nodes);
     vector<Node> allnodes = datanode_list;
 
     LOG(INFO) << "allnodes: ";
-    pretty_print(LOG(INFO), allnodes);
+    dbg::pretty_print(LOG(INFO), allnodes);
 
     // 从 allnodes 中删除在 nodes 中的节点
     allnodes.erase(std::remove_if(allnodes.begin(), allnodes.end(),
@@ -152,7 +150,7 @@ namespace spkdfs {
       }
     }
     LOG(INFO) << "chosen namenodes:";
-    pretty_print(LOG(INFO), nodes);
+    dbg::pretty_print(LOG(INFO), nodes);
     if (nodes.empty()) {
       LOG(ERROR) << "no node ready";
       throw runtime_error("no node ready");
@@ -217,7 +215,7 @@ namespace spkdfs {
       namenode_list = _json.get<vector<Node>>();
     }
     LOG(INFO) << "propose namenodes:";
-    pretty_print(LOG(INFO), namenode_list);
+    dbg::pretty_print(LOG(INFO), namenode_list);
     return 0;
   }
   NNTimer::NNTimer(uint interval, const RunFuncType& runFunc, const TimeoutFuncType& timeoutFunc)

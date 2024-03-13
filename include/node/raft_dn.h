@@ -53,7 +53,7 @@ namespace spkdfs {
     braft::Node* volatile raft_node;
     std::vector<Node> namenode_list;
     std::vector<Node> datanode_list;
-
+    
     braft::NodeOptions node_options;
     // void leaderStartCallbackType(const Node& master);
     DNApplyCallbackType applyCallback;

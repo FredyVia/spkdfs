@@ -24,6 +24,7 @@ namespace spkdfs {
     butil::EndPoint ep;
     butil::str2endpoint(ip.c_str(), port, &ep);
     braft::PeerId peerid(ep);
+    LOG(INFO) << peerid;
     return peerid;
   }
 
@@ -100,7 +101,7 @@ namespace spkdfs {
     }
     for (const auto& node : nodes) {
       LOG(INFO) << node;
-      pretty_print(LOG(INFO), node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
+      dbg::pretty_print(LOG(INFO), node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
     }
   }
 
@@ -117,7 +118,7 @@ namespace spkdfs {
     std::getline(iss, node.ip, ':');
     std::string portStr;
     std::getline(iss, portStr);
-    node.port = portStr.empty() ? 0 : std::stoi(portStr);
+    if (!portStr.empty()) node.port = std::stoi(portStr);
   };
 
   std::string to_string(const spkdfs::Node& node) {

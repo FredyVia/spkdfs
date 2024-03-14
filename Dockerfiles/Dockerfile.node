@@ -24,6 +24,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
   cmake --build build -j $(nproc)
 
 FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest
+ARG TARGETPLATFORM
 COPY --from=builder /spkdfs/build/node /node
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
   export TRIPLET=x64-linux-dynamic; \

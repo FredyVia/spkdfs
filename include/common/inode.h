@@ -73,14 +73,15 @@ namespace spkdfs {
   // inline std::string to_json(std::unique_ptr<StorageType> storageType_ptr) {
   //   return storageType_ptr->to_json();
   // }
-
+  std::vector<std::pair<std::string, std::string>> decode_one_sub(const std::string& str);
+  std::string encode_one_sub(const std::vector<std::pair<std::string, std::string>>& sub);
   class Inode {
   public:
     std::string fullpath;
     bool is_directory;
-    int filesize;
+    uint64_t filesize;
     std::shared_ptr<StorageType> storage_type_ptr;
-    std::set<std::string> sub;  // sub directory for directory or blks for file
+    std::vector<std::string> sub;
     bool valid;
     bool building;
     // int modification_time;

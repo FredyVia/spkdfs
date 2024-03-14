@@ -45,8 +45,7 @@ message NNGetResponse {
 
 message NNPutRequest {
   string path = 1;
-  uint64 filesize = 2;
-  string storage_type = 3;
+  string storage_type = 2;
 }
 
 message NNPutResponse {
@@ -57,7 +56,8 @@ message NNPutResponse {
 
 message NNPutOKRequest {
   string path = 1;
-  repeated string sub = 2;
+  uint64 filesize = 2;
+  repeated string sub = 3;
 };
 
 message NNGetMasterResponse {

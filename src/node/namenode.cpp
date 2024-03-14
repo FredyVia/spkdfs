@@ -156,12 +156,8 @@ namespace spkdfs {
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
-      if (request->filesize() < 0) {
-        throw runtime_error("filesize < 0");
-      }
       Inode inode;
       inode.fullpath = request->path();
-      inode.filesize = request->filesize();
       inode.storage_type_ptr = StorageType::from_string(request->storage_type());
       nn_raft_ptr->prepare_put(inode);
       LOG(INFO) << "inode's prepare_put" << inode.value();
@@ -192,9 +188,8 @@ namespace spkdfs {
       }
       Inode inode;
       inode.fullpath = request->path();
-      for (auto str : request->sub()) {
-        inode.sub.insert(str);
-      }
+      inode.sub = vector<string>(request->sub().begin(), request->sub().end());
+      inode.filesize = request->filesize();
       nn_raft_ptr->prepare_put_ok(inode);
       LOG(INFO) << "inode's prepare_put_ok" << inode.value();
       Task task;

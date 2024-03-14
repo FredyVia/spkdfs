@@ -129,10 +129,38 @@ namespace spkdfs {
   std::string REStorageType::decode(std::vector<std::string> vec) const { return vec.front(); }
 
   bool REStorageType::check(int success) const { return success >= 1; }
+
   std::string Inode::value() const {
     nlohmann::json j;
     to_json(j, *this);
     return j.dump();
+  }
+
+  std::string encode_one_sub(const std::vector<std::pair<std::string, std::string>>& nodes_hashs) {
+    string res;
+    for (int i = 0; i < nodes_hashs.size(); i++) {
+      std::ostringstream oss;
+      res += to_string(nodes_hashs[i].first) + "|" + nodes_hashs[i].second + ",";
+    }
+    res.pop_back();
+    LOG(INFO) << res;
+    return res;
+  }
+
+  std::vector<std::pair<std::string, std::string>> decode_one_sub(const std::string& one_sub) {
+    std::vector<std::pair<std::string, std::string>> res;
+    std::map<int, std::pair<std::string, std::string>> tmp;
+    stringstream ss(one_sub);
+    string str;
+    while (getline(ss, str, ',')) {
+      stringstream ss(str);
+      string node, blkid;
+      getline(ss, node, '|');   // 提取第一个部分
+      getline(ss, blkid, '|');  // 提取第二个部分
+      cout << node << "|" << blkid << endl;
+      res.push_back(make_pair(node, blkid));
+    }
+    return res;
   }
 
   void to_json(nlohmann::json& j, const Inode& inode) {
@@ -158,7 +186,7 @@ namespace spkdfs {
       auto storage_type_json = nlohmann::json::parse(j.at("storage_type").get<std::string>());
       from_json(storage_type_json, inode.storage_type_ptr);
     }
-    inode.sub = j.at("sub").get<std::set<std::string>>();
+    inode.sub = j.at("sub").get<std::vector<std::string>>();
     inode.valid = j.at("valid").get<bool>();
     inode.building = j.at("building").get<bool>();
     // inode.modification_time = j.at("modification_time").get<int>();

@@ -21,6 +21,7 @@ namespace spkdfs {
     void try_to_rm(const Inode& inode) const;
     bool path_exists(const std::string& path) const;
     Inode get_parent_inode(const Inode& inode);
+    void get_inode(Inode& inode);
 
   public:
     RocksDB(const std::string& db_dir);

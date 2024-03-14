@@ -120,6 +120,7 @@ namespace spkdfs {
     }
     return res;
   }
+
   std::vector<std::string> SDK::get_online_datanodes() {
     vector<Node> vec;
     for (const auto &node_str : get_datanodes()) {
@@ -151,23 +152,23 @@ namespace spkdfs {
     shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(storage_type);
 
     cout << "opening file " << srcFilePath << endl;
-    ifstream file(srcFilePath, ios::binary);
-    if (!file.is_open()) {
+    ifstream ifile(srcFilePath, ios::binary);
+    if (!ifile.is_open()) {
       throw runtime_error("Failed to open file");
     }
-    auto fileSize = fs::file_size(srcFilePath);
-    cout << "fileSize: " << fileSize << endl;
+    auto filesize = fs::file_size(srcFilePath);
+    cout << "filesize: " << filesize << endl;
     brpc::Controller cntl;
     NNPutRequest nn_put_req;
     NNPutResponse nn_put_resp;
     *(nn_put_req.mutable_path()) = dstFilePath;
-    nn_put_req.set_filesize(fileSize);
     *(nn_put_req.mutable_storage_type()) = storage_type;
     nn_master_stub_ptr->put(&cntl, &nn_put_req, &nn_put_resp, NULL);
     check_response(cntl, nn_put_resp.common());
 
     NNPutOKRequest nn_putok_req;
     *(nn_putok_req.mutable_path()) = dstFilePath;
+    nn_putok_req.set_filesize(filesize);
     uint64_t block_size = storage_type_ptr->getBlockSize();
     cout << "using block size: " << block_size << endl;
     string block;
@@ -176,9 +177,8 @@ namespace spkdfs {
 
     int node_index = 0;
     int i = 0;  // used to make std::set be ordered
-    while (file.read(&block[0], block_size) || file.gcount() > 0) {
-      int succ = 0;
-      size_t bytesRead = file.gcount();
+    while (ifile.read(&block[0], block_size) || ifile.gcount() > 0) {
+      size_t bytesRead = ifile.gcount();
       // if (bytesRead < block_size) {
       //   block.resize(block_size, '0');  // 使用0填充到新大小
       // }
@@ -186,6 +186,8 @@ namespace spkdfs {
       nn_putok_req.add_sub(res);
       blockIndex++;
     }
+    ifile.close();
+
     CommonResponse response;
     cntl.Reset();
     nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
@@ -228,49 +230,55 @@ namespace spkdfs {
                               const std::string &block) {
     auto vec = storage_type_ptr->encode(block);
     vector<string> nodes = get_online_datanodes();
-    string res;
+    std::vector<pair<std::string, std::string>> nodes_hashs;
     int node_index = 0, succ = 0;
-    Controller cntl;
+    string sha256sum;
+    int fail_count;  // avoid i-- becomes endless loop
     // 上传每个编码后的分块
-    for (auto &encodedData : vec) {
+    for (int i = 0; i < vec.size(); i++) {
       cout << "node[" << node_index << "]"
            << ":" << nodes[node_index] << endl;
-      string sha256sum = put_to_datanode(nodes[node_index], encodedData);
-
-      std::ostringstream oss;
-      oss << std::setw(16) << std::setfill('0') << succ;
-      cout << oss.str() << endl;
-      res += oss.str() + "|" + to_string(nodes[node_index]) + "|" + sha256sum + ",";
-
-      succ++;
+      try {
+        sha256sum = put_to_datanode(nodes[node_index], vec[i]);
+        nodes_hashs.push_back(make_pair(nodes[node_index], sha256sum));
+        succ++;
+        cout << nodes[node_index] << " success";
+      } catch (const exception &e) {
+        cout << nodes[node_index] << " failed";
+        i--;
+        fail_count++;
+      }
       node_index = (node_index + 1) % nodes.size();
       if (node_index == 0 && storage_type_ptr->check(succ) == false) {
         cout << "may not be secure" << endl;
+        if (fail_count == nodes.size()) {
+          cout << "all failed" << endl;
+          break;
+        }
+        fail_count = 0;
       }
     }
-    res.pop_back();
-    return res;
+    return encode_one_sub(nodes_hashs);
   }
 
   std::string SDK::decode_one(std::shared_ptr<StorageType> storage_type_ptr, const std::string &s) {
     int succ = 0;
     vector<string> datas;
     datas.resize(storage_type_ptr->getDecodeBlocks());
-    stringstream ss(s);
-    string str;
-    while (getline(ss, str, ',')) {
-      stringstream ss(str);
-      string _, node, blkid;
-      getline(ss, _, '|');      // 提取第一个部分
-      getline(ss, node, '|');   // 提取第二个部分
-      getline(ss, blkid, '|');  // 提取第三个部分
-      cout << _ << "|" << node << "|" << blkid << endl;
+    std::vector<std::pair<std::string, std::string>> res;
+    res = decode_one_sub(s);
+    string node;
+    string blkid;
+    for (auto &p : res) {
+      node = p.first;
+      blkid = p.second;
       try {
         datas[succ++] = get_from_datanode(node, blkid);
         if (succ == storage_type_ptr->getDecodeBlocks()) {
           return storage_type_ptr->decode(datas);
         }
       } catch (const exception &e) {
+        cout << e.what() << endl;
         cout << node << " | " << blkid << " failed" << endl;
       }
     }
@@ -310,11 +318,7 @@ namespace spkdfs {
 
   void SDK::ln_path_index(const std::string &path, uint32_t index) const {
     std::filesystem::create_hard_link(get_tmp_index_path(path, index),
-                                      get_ln_path_index(path, index));
-  }
-
-  inline std::string SDK::get_ln_path_index(const std::string &path, uint32_t index) const {
-    return get_tmp_write_path(path) + "/" + std::to_string(index);
+                                      get_tmp_write_path(path) + "/" + std::to_string(index));
   }
 
   inline std::string SDK::get_tmp_write_path(const string &path) const {
@@ -333,13 +337,7 @@ namespace spkdfs {
   std::string SDK::read_data(const Inode &inode, std::pair<int, int> indexs) {
     string tmp_path;
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-    auto iter = inode.sub.begin();
-    for (int i = 0; i < indexs.first; i++) {
-      iter++;
-      if (iter == inode.sub.end()) {
-        return "";
-      }
-    }
+    auto iter = inode.sub.begin() + indexs.first;
     std::ostringstream oss;
     string tmp_str;
     for (int index = indexs.first; index < indexs.second; index++) {
@@ -349,26 +347,26 @@ namespace spkdfs {
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
         tmp_str.resize(filesize);
-        ifstream dstFile(tmp_path, std::ios::binary);
-        if (!dstFile) {
+        ifstream ifile(tmp_path, std::ios::binary);
+        if (!ifile) {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        if (!dstFile.read(&tmp_str[0], filesize)) {
+        if (!ifile.read(&tmp_str[0], filesize)) {
           cout << "Failed to read file content." << endl;
           throw std::runtime_error("readfile error:" + tmp_path);
         }
-        dstFile.close();
+        ifile.close();
 
       } else {
-        ofstream dstFile(tmp_path, std::ios::binary);
-        if (!dstFile) {
+        ofstream ofile(tmp_path, std::ios::binary);
+        if (!ofile) {
           cout << "Failed to open file for reading." << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
         tmp_str = decode_one(inode.storage_type_ptr, blks);
-        dstFile << tmp_str;
-        dstFile.close();
+        ofile << tmp_str;
+        ofile.close();
       }
       pathlocks.unlock(tmp_path);
       oss << tmp_str;
@@ -430,6 +428,57 @@ namespace spkdfs {
     put(dst_path, path, guess_storage_type());
   }
 
+  void SDK::fsync(const std::string &dst) {
+    string write_dst = get_tmp_write_path(dst);
+    if (!fs::exists(write_dst)) {
+      return;
+    }
+    if (!fs::is_directory(write_dst)) {
+      throw runtime_error(write_dst + " is not directory");
+    }
+    vector<int> res;
+    for (const auto &entry : fs::directory_iterator(write_dst)) {
+      const auto index_str = entry.path().filename().string();
+      if (entry.is_directory()) {
+        throw runtime_error(index_str + " is directory");
+      }
+      res.push_back(stoi(index_str));
+    }
+    sort(res.begin(), res.end());
+    Inode inode = get_inode(dst);
+    int index_filesize;
+    string index_block;
+    for (auto &i : res) {
+      string index_file_path = write_dst + "/" + std::to_string(i);
+      pathlocks.lock(index_file_path);
+      ifstream ifile(index_file_path, std::ios::binary);
+      if (!ifile) {
+        cout << "Failed to open file for reading." << endl;
+        // throw std::runtime_error("openfile error:" + tmp_path);
+        continue;
+      }
+      index_filesize = fs::file_size(index_file_path);
+      index_block.resize(index_filesize);
+      if (!ifile.read(&index_block[0], index_filesize)) {
+        cout << "Failed to read file content." << endl;
+        throw std::runtime_error("readfile error:" + index_file_path);
+      }
+      ifile.close();
+      inode.sub[i] = encode_one(inode.storage_type_ptr, index_block);
+      fs::remove(index_file_path);
+      pathlocks.unlock(index_file_path);
+    }
+    int filesize = inode.filesize;
+    Controller cntl;
+    NNPutOKRequest nn_putok_req;
+    CommonResponse response;
+    *(nn_putok_req.mutable_path()) = dst;
+    nn_putok_req.set_filesize(filesize);
+    for (auto &s : inode.sub) {
+      nn_putok_req.add_sub(s);
+    }
+    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+  }
   // std::vector<std::string> SDK::write_data(const Inode &inode, int start_index,
   //                                          const std::string &s) {
   //   vector<string> res;

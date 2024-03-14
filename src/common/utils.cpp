@@ -1,18 +1,19 @@
 #include "common/utils.h"
 
+#include <arpa/inet.h>
 #include <cryptopp/filters.h>
 #include <cryptopp/hex.h>
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
-#include <arpa/inet.h>
 #include <cryptopp/md5.h>
 #include <cryptopp/sha.h>
+#define DBG_MACRO_NO_WARNING
+#include <dbg.h>
 #include <glog/logging.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
-#define DBG_MACRO_NO_WARNING
-#include <dbg.h>
 
 #include <filesystem>
+#include <memory>
 #include <set>
 
 namespace spkdfs {

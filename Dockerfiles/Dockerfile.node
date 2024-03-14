@@ -7,27 +7,32 @@ RUN apt update && apt install -y --no-install-recommends crossbuild-essential-${
 COPY . /spkdfs
 COPY --from=vcpkg_source /vcpkg /vcpkg
 WORKDIR /spkdfs
-ENV ENV_FILE="/env.sh"
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-  echo 'export COMPILER=/usr/bin/x86_64-linux-gnu-g++' >> ${ENV_FILE} && \
-  echo 'export TRIPLET=x64-linux-dynamic' >> ${ENV_FILE}; \
+  export COMPILER=/usr/bin/x86_64-linux-gnu-g++ && \
+  export TRIPLET=x64-linux-dynamic; \
   elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-  echo 'export COMPILER=/usr/bin/aarch64-linux-gnu-g++' >> ${ENV_FILE} && \
-  echo 'export TRIPLET=arm64-linux-dynamic' >> ${ENV_FILE}; \
+  export COMPILER=/usr/bin/aarch64-linux-gnu-g++ && \
+  export TRIPLET=arm64-linux-dynamic; \
   else \
   echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
-  fi
-
-RUN . ${ENV_FILE} && cmake -S . -B build \
+  fi && \
+  cmake -S . -B build \
   -DCMAKE_BUILD_TYPE=Debug \
   -DVCPKG_TARGET_TRIPLET=${TRIPLET} \
   -DCMAKE_CXX_COMPILER=${COMPILER} \
   -DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake && \
-  cmake --build build -j $(nproc) && \
-  mv /vcpkg/installed/${TRIPLET}/lib /vcpkg_lib
+  cmake --build build -j $(nproc)
 
-FROM --platform=$TARGETPLATFORM ubuntu:22.04
+FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_runtime:latest
 COPY --from=builder /spkdfs/build/node /node
-COPY --from=builder /vcpkg_lib/* /lib
+RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
+  export TRIPLET=x64-linux-dynamic; \
+  elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
+  export TRIPLET=arm64-linux-dynamic; \
+  else \
+  echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
+  fi && \
+  mv /vcpkg/installed/${TRIPLET}/lib /vcpkg_lib
+ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}
 ENTRYPOINT [ "/node" ]
 CMD [ "--help" ]

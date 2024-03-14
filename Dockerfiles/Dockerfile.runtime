@@ -2,27 +2,17 @@ FROM --platform=$BUILDPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdf
 ARG TARGETPLATFORM
 ARG TARGETARCH
 ARG PACKAGES="breakpad gtest gflags braft brpc nlohmann-json protobuf glog rocksdb cryptopp liberasurecode libfuse dbg-macro"
-ENV ENV_FILE="/env.sh"
-RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-  echo 'export TRIPLET=x64-linux-dynamic' >> ${ENV_FILE}; \
-  elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-  echo 'export TRIPLET=arm64-linux-dynamic' >> ${ENV_FILE}; \
-  else \
-  echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
-  fi
 RUN apt update && apt install -y --no-install-recommends crossbuild-essential-${TARGETARCH} && apt clean;
 RUN git clone https://github.com/FredyVia/vcpkg -b mixed --depth 1 /vcpkg && /vcpkg/bootstrap-vcpkg.sh
-RUN . ${ENV_FILE} && /vcpkg/vcpkg install ${PACKAGES} --triplet=${TRIPLET} && \
-    /vcpkg/vcpkg export --x-all-installed --raw --output=/vcpkg/vcpkg-exported
-
-FROM --platform=$TARGETPLATFORM ubuntu:22.04
-ENV ENV_FILE="/etc/profile"
-COPY --from=builder /vcpkg/vcpkg-exported /vcpkg
 RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
-  echo 'export TRIPLET=x64-linux-dynamic' >> ${ENV_FILE}; \
+  export TRIPLET=x64-linux-dynamic; \
   elif [ "$TARGETPLATFORM" = "linux/arm64" ]; then \
-  echo 'export TRIPLET=arm64-linux-dynamic' >> ${ENV_FILE}; \
+  export TRIPLET=arm64-linux-dynamic; \
   else \
   echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
   fi && \
-  echo 'export LD_LIBRARY_PATH=/vcpkg/installed/${TRIPLET}/lib:${LD_LIBRARY_PATH}' >> ${ENV_FILE};
+  /vcpkg/vcpkg install ${PACKAGES} --triplet=${TRIPLET} && \
+  /vcpkg/vcpkg export --x-all-installed --raw --output=/vcpkg/vcpkg-exported
+
+FROM --platform=$TARGETPLATFORM ubuntu:22.04
+COPY --from=builder /vcpkg/vcpkg-exported /vcpkg

@@ -179,7 +179,7 @@ namespace spkdfs {
   void from_json(const nlohmann::json& j, Inode& inode) {
     inode.fullpath = j.at("fullpath").get<std::string>();
     inode.is_directory = j.at("is_directory").get<bool>();
-    inode.filesize = j.at("filesize").get<int>();
+    inode.filesize = j.at("filesize").get<uint64_t>();
     inode.storage_type_ptr = nullptr;
     if (j.find("storage_type") != j.end()) {
       LOG(INFO) << j.at("storage_type");

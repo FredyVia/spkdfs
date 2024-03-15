@@ -19,10 +19,9 @@ namespace spkdfs {
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
     PathLocks pathlocks;
     DatanodeService_Stub* get_dn_stub(const std::string& node);
-    void open(const std::string& path, bool readonly = true);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);
-    inline std::pair<int, int> get_indexs(const Inode& inode, uint32_t offset, uint32_t size) const;
+    inline std::pair<int, int> get_indexs(const Inode& inode, uint64_t offset, size_t size) const;
     void ln_path_index(const std::string& path, uint32_t index) const;
     // inline std::string get_ln_path_index(const std::string& path, uint32_t index) const;
     inline std::string get_tmp_write_path(const std::string& path) const;
@@ -38,17 +37,20 @@ namespace spkdfs {
     void create(const std::string& path);
     SDK(const std::string& datanode);
     ~SDK();
+    void open(const std::string& path, int flags);
+    void close(const std::string& path);
     void mkdir(const std::string& dst);
     void rm(const std::string& dst);
+    void truncate(const std::string& dst, size_t size);
     Inode ls(const std::string& dst);
     void put(const std::string& src, const std::string& dst, const std::string& storage_type);
     void get(const std::string& src, const std::string& dst);
     std::string get_tmp_path(const std::string& path, uint32_t index) const;
-    std::string read_data(const std::string& path, uint32_t offset, uint32_t size);
-    void write_data(const std::string& path, uint32_t offset, const std::string& s);
+    std::string read_data(const std::string& path, uint64_t offset, size_t size);
+    void write_data(const std::string& path, uint64_t offset, const std::string& s);
     std::string put_to_datanode(const std::string& datanode, const std::string& block);
     std::string get_from_datanode(const std::string& datanode, const std::string& blkid);
-    void put_part(const std::string& path, uint32_t offset, uint32_t size);
+    void put_part(const std::string& path, uint64_t offset, size_t size);
     void fsync(const std::string& dst);
 
     Inode get_inode(const std::string& dst);

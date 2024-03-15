@@ -158,9 +158,9 @@ namespace spkdfs {
       }
       Inode inode;
       inode.fullpath = request->path();
-      inode.storage_type_ptr = StorageType::from_string(request->storage_type());
       nn_raft_ptr->prepare_put(inode);
-      LOG(INFO) << "inode's prepare_put" << inode.value();
+      inode.storage_type_ptr = StorageType::from_string(request->storage_type());
+      LOG(INFO) << "prepare put inode's prepare_put" << inode.value();
       Task task;
       butil::IOBuf buf;
       buf.push_back(OpType::OP_PUT);
@@ -188,9 +188,9 @@ namespace spkdfs {
       }
       Inode inode;
       inode.fullpath = request->path();
+      nn_raft_ptr->prepare_put_ok(inode);
       inode.sub = vector<string>(request->sub().begin(), request->sub().end());
       inode.filesize = request->filesize();
-      nn_raft_ptr->prepare_put_ok(inode);
       LOG(INFO) << "inode's prepare_put_ok" << inode.value();
       Task task;
       butil::IOBuf buf;

@@ -187,7 +187,13 @@ namespace spkdfs {
   void RocksDB::prepare_put_ok(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     LOG(INFO) << "prepare put ok" << inode.value();
-    try_to_rm(inode);
+    get_inode(inode);
+    if (!inode.valid) {
+      throw MessageException(PATH_NOT_EXISTS_EXCEPTION, inode.fullpath);
+    }
+    if (inode.is_directory) {
+      throw MessageException(EXPECTED_FILE_EXCEPTION, inode.fullpath);
+    }
   }
 
   void RocksDB::prepare_rm(Inode& inode) {
@@ -196,6 +202,7 @@ namespace spkdfs {
   }
 
   void RocksDB::internal_rm(const Inode& inode) {
+    if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     Status s;
     string value;
 
@@ -241,10 +248,14 @@ namespace spkdfs {
   }
 
   void RocksDB::internal_put_ok(const Inode& inode) {
+    if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     Status s;
     string value;
     auto parent_inode = get_parent_inode(inode);
-    parent_inode.sub.push_back(inode.filename());
+    auto iter = find(parent_inode.sub.begin(), parent_inode.sub.end(), inode.filename());
+    if (iter == parent_inode.sub.end()) {
+      parent_inode.sub.push_back(inode.filename());
+    }
     s = get(inode.fullpath, value);
     if (!s.ok()) {
       throw runtime_error("internal get not ok" + s.ToString());

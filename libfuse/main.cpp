@@ -109,8 +109,21 @@ public:
     init();
   }
 
+  void open(const string &dst, int flags) {
+    cout << "libfuse open: " << dst << endl;
+    try {
+      sdk->open(dst, flags);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+    } catch (const exception &e) {
+      cout << e.what() << endl;
+      reinit();
+      sdk->open(dst, flags);
+    }
+  }
+
   void mkdir(const string &dst) {
-    cout << "libfuse mkdir :" << dst << endl;
+    cout << "libfuse mkdir: " << dst << endl;
     try {
       sdk->mkdir(dst);
     } catch (const spkdfs::MessageException &e) {
@@ -123,7 +136,7 @@ public:
   };
 
   void rm(const std::string &dst) {
-    cout << "libfuse rm :" << dst << endl;
+    cout << "libfuse rm: " << dst << endl;
     try {
       sdk->rm(dst);
     } catch (const spkdfs::MessageException &e) {
@@ -136,8 +149,22 @@ public:
     }
   }
 
+  void truncate(const std::string &dst, size_t size) {
+    cout << "libfuse truncate: " << dst << ", size: " << size << endl;
+    try {
+      sdk->truncate(dst, size);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+    } catch (const exception &e) {
+      cout << dst << endl;
+      cout << e.what() << endl;
+      reinit();
+      sdk->truncate(dst, size);
+    }
+  }
+
   Inode ls(const std::string &dst) {
-    cout << "libfuse ls :" << dst << endl;
+    cout << "libfuse ls: " << dst << endl;
     try {
       return sdk->ls(dst);
     } catch (const spkdfs::MessageException &e) {
@@ -151,8 +178,8 @@ public:
     }
   }
 
-  string read(const string &dst, uint32_t offset, uint32_t size) {
-    cout << "libfuse read :" << dst << endl;
+  string read(const string &dst, uint64_t offset, size_t size) {
+    cout << "libfuse read: " << dst << endl;
     try {
       return sdk->read_data(dst, offset, size);
     } catch (const spkdfs::MessageException &e) {
@@ -167,7 +194,7 @@ public:
   }
 
   void create(const string &dst) {
-    cout << "libfuse read :" << dst << endl;
+    cout << "libfuse create: " << dst << endl;
     try {
       sdk->create(dst);
     } catch (const spkdfs::MessageException &e) {
@@ -181,8 +208,8 @@ public:
     }
   }
 
-  void write(const std::string &dst, uint32_t offset, const std::string &s) {
-    cout << "libfuse write :" << dst << endl;
+  void write(const std::string &dst, uint64_t offset, const std::string &s) {
+    cout << "libfuse write: " << dst << endl;
     try {
       sdk->write_data(dst, offset, s);
     } catch (const spkdfs::MessageException &e) {
@@ -195,8 +222,24 @@ public:
       sdk->write_data(dst, offset, s);
     }
   }
+
+  void close(const std::string &dst) {
+    cout << "libfuse close: " << dst << endl;
+    try {
+      sdk->close(dst);
+    } catch (const spkdfs::MessageException &e) {
+      cout << e.what() << endl;
+      throw e;
+    } catch (const exception &e) {
+      cout << dst << endl;
+      cout << e.what() << endl;
+      reinit();
+      sdk->close(dst);
+    }
+  }
+
   void fsync(const std::string &dst) {
-    cout << "libfuse fsync :" << dst << endl;
+    cout << "libfuse fsync: " << dst << endl;
     try {
       sdk->fsync(dst);
     } catch (const spkdfs::MessageException &e) {
@@ -303,8 +346,18 @@ static int spkdfs_rm(const char *path) {
   return 0;
 }
 
+static int spkdfs_truncate(const char *path, off_t size, struct fuse_file_info *fi) {
+  cout << "call spkdfs_truncate, size: " << size << endl;
+  try {
+    fuse_ptr->truncate(path, size);
+  } catch (const exception &e) {
+    return -ENOENT;
+  }
+  return 0;
+}
+
 static int spkdfs_open(const char *path, struct fuse_file_info *fi) {
-  // if(fi->flags&)
+  fuse_ptr->open(path, fi->flags);
   return 0;
 }
 
@@ -339,7 +392,14 @@ static int spkdfs_write(const char *path, const char *data, size_t size, off_t o
   return size;
 }
 
-int spkdfs_close(const char *path, struct fuse_file_info *) { return 0; }
+int spkdfs_close(const char *path, struct fuse_file_info *) {
+  try {
+    fuse_ptr->close(path);
+  } catch (const exception &e) {
+    return -EIO;
+  }
+  return 0;
+}
 int spkdfs_fsync(const char *path, int, struct fuse_file_info *) {
   try {
     fuse_ptr->fsync(path);
@@ -357,19 +417,30 @@ static int spkdfs_create(const char *path, mode_t, struct fuse_file_info *) {
   }
   return 0;
 }
+
+static int spkdfs_utimens(const char *path, const struct timespec ts[2],
+                          struct fuse_file_info *fi) {
+  printf("%s call\n", __func__);
+  return 0;
+}
+
 static const struct fuse_operations spkdfs_oper = {
     .getattr = spkdfs_getattr,  // 316
-    .mkdir = spkdfs_mkdir,      // 342
-    .unlink = spkdfs_rm,        // 345
-    .rmdir = spkdfs_rm,         // 348
-    .open = spkdfs_open,        // 441
-    .read = spkdfs_read,        // 452
-    .write = spkdfs_write,      // 464
-    .release = spkdfs_close,    // 515
-    .fsync = spkdfs_fsync,      // 522
-    .readdir = spkdfs_readdir,  // 561
-    .init = spkdfs_init,        // 583
+    // .mknod      = lofs_mknod,
+    .mkdir = spkdfs_mkdir,  // 342
+    .unlink = spkdfs_rm,    // 345
+    .rmdir = spkdfs_rm,     // 348
+    // .rename     = lofs_rename,
+    .truncate = spkdfs_truncate,  // 392
+    .open = spkdfs_open,          // 441
+    .read = spkdfs_read,          // 452
+    .write = spkdfs_write,        // 464
+    .release = spkdfs_close,      // 515
+    .fsync = spkdfs_fsync,        // 522
+    .readdir = spkdfs_readdir,    // 561
+    // .init = spkdfs_init,        // 583
     .create = spkdfs_create,    // 614
+    .utimens = spkdfs_utimens,  // 661
 };
 
 static void show_help(const char *progname) {
@@ -402,6 +473,7 @@ int main(int argc, char *argv[]) {
     show_help(argv[0]);
     assert(fuse_opt_add_arg(&args, "--help") == 0);
     args.argv[0][0] = '\0';
+    return 0;
   }
   fuse_ptr = new FUSE(options.ips);
   ret = fuse_main(args.argc, args.argv, &spkdfs_oper, NULL);

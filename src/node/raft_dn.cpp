@@ -190,7 +190,7 @@ namespace spkdfs {
     string file_path = writer->get_path() + "/namenodes.json";
     ofstream file(file_path, ios::binary);
     if (!file) {
-      LOG(ERROR) << "Failed to open file for writing.";
+      LOG(ERROR) << "Failed to open file for writing." << file_path;
       done->status().set_error(EIO, "Fail to save " + file_path);
     }
     json j = json::array();
@@ -200,12 +200,13 @@ namespace spkdfs {
     file << j.dump();
     file.close();
   };
+
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
     string file_path = reader->get_path() + "namenodes.json";
     string str;
     ifstream file(file_path, ios::binary);
     if (!file) {
-      LOG(ERROR) << "Failed to open file for reading.";
+      LOG(ERROR) << "Failed to open file for reading." << file_path;
       return -1;
     }
     file >> str;

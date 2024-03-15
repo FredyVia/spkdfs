@@ -39,7 +39,7 @@ namespace spkdfs {
       auto file_path = FLAGS_data_dir + "/blk_" + request->blkid();
       ofstream file(file_path, ios::binary);
       if (!file) {
-        LOG(ERROR) << "Failed to open file for writing.";
+        LOG(ERROR) << "Failed to open file for writing." << file_path;
         throw runtime_error("openfile error:" + file_path);
       }
       file << request->data();
@@ -63,11 +63,11 @@ namespace spkdfs {
       string data;
       std::ifstream file(file_path, std::ios::binary);
       if (!file) {
-        LOG(ERROR) << "Failed to open file for reading.";
+        LOG(ERROR) << "Failed to open file for reading." << file_path;
         throw std::runtime_error("openfile error:" + file_path);
       }
 
-      uint32_t size = fs::file_size(file_path);
+      size_t size = fs::file_size(file_path);
 
       // 为整个文件内容预留空间，然后读取
       data.resize(size);

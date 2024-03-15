@@ -1,5 +1,8 @@
 #include "client/sdk.h"
 
+#include <fcntl.h>
+#include <unistd.h>
+
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -89,7 +92,7 @@ namespace spkdfs {
 
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
-
+    cout << inode.value() << endl;
     return inode;
   }
 
@@ -106,7 +109,7 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
-  inline std::string SDK::guess_storage_type() const { return "RS<3,2,16>"; }
+  inline std::string SDK::guess_storage_type() const { return "RS<7,5,16>"; }
 
   std::vector<std::string> SDK::get_datanodes() {
     vector<string> res;
@@ -140,12 +143,21 @@ namespace spkdfs {
     return res;
   }
 
-  void SDK::open(const std::string &path, bool readonly) {
+  void SDK::open(const std::string &path, int flags) {
+    cout << "open flags: " << flags << endl;
     createDirectoryIfNotExist(get_tmp_path(path));
-    if (!readonly) {
-      createDirectoryIfNotExist(get_tmp_write_path(path));
+    if ((flags & O_ACCMODE) != O_RDONLY) createDirectoryIfNotExist(get_tmp_write_path(path));
+    if (flags & O_CREAT) {
+      cout << "open with flag: O_CREAT" << endl;
+      create(path);
+    }
+    if (flags & O_TRUNC) {
+      cout << "open with flag: O_TRUNC" << endl;
+      truncate(path, 0);
     }
   }
+
+  void SDK::close(const std::string &dst) { fsync(dst); }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
                 const std::string &storage_type) {
@@ -154,7 +166,7 @@ namespace spkdfs {
     cout << "opening file " << srcFilePath << endl;
     ifstream ifile(srcFilePath, ios::binary);
     if (!ifile.is_open()) {
-      throw runtime_error("Failed to open file");
+      throw runtime_error("Failed to open file" + srcFilePath);
     }
     auto filesize = fs::file_size(srcFilePath);
     cout << "filesize: " << filesize << endl;
@@ -242,9 +254,9 @@ namespace spkdfs {
         sha256sum = put_to_datanode(nodes[node_index], vec[i]);
         nodes_hashs.push_back(make_pair(nodes[node_index], sha256sum));
         succ++;
-        cout << nodes[node_index] << " success";
+        cout << nodes[node_index] << " success" << endl;
       } catch (const exception &e) {
-        cout << nodes[node_index] << " failed";
+        cout << nodes[node_index] << " failed" << endl;
         i--;
         fail_count++;
       }
@@ -291,7 +303,7 @@ namespace spkdfs {
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
     ofstream dstFile(dst, std::ios::binary);
     if (!dstFile.is_open()) {
-      throw runtime_error("Failed to open file");
+      throw runtime_error("Failed to open file" + dst);
     }
     for (const auto &s : inode.sub) {
       dstFile << decode_one(inode.storage_type_ptr, s);
@@ -311,12 +323,36 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
-  inline pair<int, int> SDK::get_indexs(const Inode &inode, uint32_t offset, uint32_t size) const {
+  void SDK::truncate(const std::string &dst, size_t size) {
+    Inode inode = get_inode(dst);
+    if (inode.filesize == size) {
+      return;
+    }
+    if (inode.filesize < size) {
+      write_data(dst, inode.filesize, string(size - inode.filesize, '\0'));
+      return;
+    }
+    NNPutOKRequest nn_putok_req;
+    *(nn_putok_req.mutable_path()) = dst;
+    nn_putok_req.set_filesize(size);
+    for (int i = 0; i < align_up(size, inode.getBlockSize()); i++) {
+      nn_putok_req.add_sub(inode.sub[i]);
+    };
+    Controller cntl;
+    CommonResponse response;
+    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    check_response(cntl, response.common());
+  }
+
+  inline pair<int, int> SDK::get_indexs(const Inode &inode, uint64_t offset, size_t size) const {
     return make_pair(align_index_down(offset, inode.getBlockSize()),
                      align_index_up(offset + size, inode.getBlockSize()));
   }
 
   void SDK::ln_path_index(const std::string &path, uint32_t index) const {
+    cout << "creating hardlink" << get_tmp_write_path(path) + "/" + std::to_string(index)
+         << " >>>>> " << get_tmp_index_path(path, index) << endl;
+    fs::remove(get_tmp_write_path(path) + "/" + std::to_string(index));
     std::filesystem::create_hard_link(get_tmp_index_path(path, index),
                                       get_tmp_write_path(path) + "/" + std::to_string(index));
   }
@@ -339,20 +375,23 @@ namespace spkdfs {
     cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
     auto iter = inode.sub.begin() + indexs.first;
     std::ostringstream oss;
-    string tmp_str;
+    string block;
     for (int index = indexs.first; index < indexs.second; index++) {
+      if (iter >= inode.sub.end()) {
+        break;
+      }
       string blks = *iter;
       tmp_path = get_tmp_index_path(inode.fullpath, index);
       pathlocks.lock(tmp_path);
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
-        tmp_str.resize(filesize);
+        block.resize(filesize);
         ifstream ifile(tmp_path, std::ios::binary);
         if (!ifile) {
-          cout << "Failed to open file for reading." << endl;
+          cout << "Failed to open file for reading." << tmp_path << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        if (!ifile.read(&tmp_str[0], filesize)) {
+        if (!ifile.read(&block[0], filesize)) {
           cout << "Failed to read file content." << endl;
           throw std::runtime_error("readfile error:" + tmp_path);
         }
@@ -361,21 +400,21 @@ namespace spkdfs {
       } else {
         ofstream ofile(tmp_path, std::ios::binary);
         if (!ofile) {
-          cout << "Failed to open file for reading." << endl;
+          cout << "Failed to open file for reading." << tmp_path << endl;
           throw std::runtime_error("openfile error:" + tmp_path);
         }
-        tmp_str = decode_one(inode.storage_type_ptr, blks);
-        ofile << tmp_str;
+        block = decode_one(inode.storage_type_ptr, blks);
+        ofile << block;
         ofile.close();
       }
       pathlocks.unlock(tmp_path);
-      oss << tmp_str;
+      oss << block;
       iter++;
     };
     return oss.str();
   }
 
-  std::string SDK::read_data(const string &path, uint32_t offset, uint32_t size) {
+  std::string SDK::read_data(const string &path, uint64_t offset, size_t size) {
     string res;
     Inode inode = get_inode(path);
     if (inode.filesize < offset) {
@@ -392,22 +431,29 @@ namespace spkdfs {
                   s.begin() + offset - indexs.first * inode.getBlockSize() + size);
   }
 
-  void SDK::write_data(const string &path, uint32_t offset, const std::string &s) {
+  void SDK::write_data(const string &path, uint64_t offset, const std::string &s) {
+    createDirectoryIfNotExist(get_tmp_path(path));
+    createDirectoryIfNotExist(get_tmp_write_path(path));
+
     Inode inode = get_inode(path);
 
     int size = s.size();
     auto iter = s.begin();
 
     pair<int, int> indexs = get_indexs(inode, offset, s.size());
-    read_data(inode, make_pair(indexs.first, indexs.first + 1));
-    read_data(inode, make_pair(indexs.second - 1, indexs.second));
+    if (offset % inode.getBlockSize() != 0) {
+      read_data(inode, make_pair(indexs.first, indexs.first + 1));
+    }
+    if (indexs.first != indexs.second - 1 && offset % inode.getBlockSize() != 0) {
+      read_data(inode, make_pair(indexs.second - 1, indexs.second));
+    }
 
     for (int index = indexs.first; index < indexs.second; index++) {
       size_t left = index == indexs.first ? offset % inode.getBlockSize() : 0;
       size_t right = index == indexs.second - 1 ? (offset + size) % inode.getBlockSize()
                                                 : inode.getBlockSize();
       size_t localSize = right - left;
-      iter += localSize;
+      // iter += localSize;
 
       string dst = get_tmp_index_path(path, index);
 
@@ -416,15 +462,19 @@ namespace spkdfs {
         std::cout << "failed to write data to " << dst << std::endl;
         throw runtime_error("failed to write data to " + dst);
       }
+      dstFile.seekp(left, ios::beg);
       dstFile << string(iter, iter + localSize);
       dstFile.close();
+      iter += localSize;
       ln_path_index(path, index);
     }
   }
 
   void SDK::create(const string &path) {
-    string dst_path = get_tmp_index_path(path, 0);
-    std::ofstream{dst_path};
+    open("", false);
+    string dst_path = get_tmp_index_path("", 0);
+    std::ofstream ofile(dst_path);
+    ofile.close();
     put(dst_path, path, guess_storage_type());
   }
 
@@ -444,20 +494,25 @@ namespace spkdfs {
       }
       res.push_back(stoi(index_str));
     }
+    if (res.empty()) return;
     sort(res.begin(), res.end());
     Inode inode = get_inode(dst);
-    int index_filesize;
+    if (inode.sub.size() <= res.back()) {
+      inode.sub.resize(res.back() + 1);
+    };
+    int index_filesize, last_index_filesize = 0;
     string index_block;
     for (auto &i : res) {
       string index_file_path = write_dst + "/" + std::to_string(i);
       pathlocks.lock(index_file_path);
       ifstream ifile(index_file_path, std::ios::binary);
       if (!ifile) {
-        cout << "Failed to open file for reading." << endl;
+        cout << "Failed to open file for reading." << index_file_path << endl;
         // throw std::runtime_error("openfile error:" + tmp_path);
         continue;
       }
       index_filesize = fs::file_size(index_file_path);
+      last_index_filesize = index_filesize;
       index_block.resize(index_filesize);
       if (!ifile.read(&index_block[0], index_filesize)) {
         cout << "Failed to read file content." << endl;
@@ -468,7 +523,8 @@ namespace spkdfs {
       fs::remove(index_file_path);
       pathlocks.unlock(index_file_path);
     }
-    int filesize = inode.filesize;
+    int filesize = std::max(inode.filesize,
+                            (uint64_t)res.back() * inode.getBlockSize() + last_index_filesize);
     Controller cntl;
     NNPutOKRequest nn_putok_req;
     CommonResponse response;

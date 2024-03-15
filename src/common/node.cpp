@@ -109,7 +109,7 @@ namespace spkdfs {
       : ip(ip), port(port), nodeStatus(nodeStatus) {
     // warning: ipv6 not supported
     from_string(ip, *this);
-  };
+  }
 
   std::string Node::to_string() const { return spkdfs::to_string(*this); }
 
@@ -119,11 +119,11 @@ namespace spkdfs {
     std::string portStr;
     std::getline(iss, portStr);
     if (!portStr.empty()) node.port = std::stoi(portStr);
-  };
+  }
 
   std::string to_string(const spkdfs::Node& node) {
     return node.ip + ":" + std::to_string(node.port);
-  };
+  }
 
   void to_json(nlohmann::json& j, const Node& node) {
     j = nlohmann::json{{"ip", node.ip}, {"port", node.port}};

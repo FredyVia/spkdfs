@@ -213,13 +213,14 @@ namespace spkdfs {
     DNGetResponse dnget_resp;
     *(dnget_req.mutable_blkid()) = blkid;
     brpc::Controller cntl;
+    cntl.set_timeout_ms(5000);
     get_dn_stub(datanode)->get(&cntl, &dnget_req, &dnget_resp, NULL);
     check_response(cntl, dnget_resp.common());
     cout << datanode << " | " << blkid << " success" << endl;
     string data = dnget_resp.data();
     if (cal_sha256sum(data) != blkid) {
       throw runtime_error("sha256sum check fail");
-    };
+    }
     return data;
   }
 
@@ -228,6 +229,7 @@ namespace spkdfs {
     cout << "sha256sum:" << sha256sum << endl;
     // 假设每个分块的大小是block.size() / k
     Controller cntl;
+    cntl.set_timeout_ms(5000);
     DNPutRequest dn_req;
     CommonResponse dn_resp;
     *(dn_req.mutable_blkid()) = sha256sum;
@@ -245,7 +247,7 @@ namespace spkdfs {
     std::vector<pair<std::string, std::string>> nodes_hashs;
     int node_index = 0, succ = 0;
     string sha256sum;
-    int fail_count;  // avoid i-- becomes endless loop
+    int fail_count = 0;  // avoid i-- becomes endless loop
     // 上传每个编码后的分块
     for (int i = 0; i < vec.size(); i++) {
       cout << "node[" << node_index << "]"
@@ -256,6 +258,7 @@ namespace spkdfs {
         succ++;
         cout << nodes[node_index] << " success" << endl;
       } catch (const exception &e) {
+        cout << e.what() << endl;
         cout << nodes[node_index] << " failed" << endl;
         i--;
         fail_count++;
@@ -307,7 +310,7 @@ namespace spkdfs {
     }
     for (const auto &s : inode.sub) {
       dstFile << decode_one(inode.storage_type_ptr, s);
-    };
+    }
     dstFile.close();
     fs::resize_file(dst, inode.filesize);
   }
@@ -337,7 +340,7 @@ namespace spkdfs {
     nn_putok_req.set_filesize(size);
     for (int i = 0; i < align_up(size, inode.getBlockSize()); i++) {
       nn_putok_req.add_sub(inode.sub[i]);
-    };
+    }
     Controller cntl;
     CommonResponse response;
     nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
@@ -410,7 +413,7 @@ namespace spkdfs {
       pathlocks.unlock(tmp_path);
       oss << block;
       iter++;
-    };
+    }
     return oss.str();
   }
 
@@ -444,7 +447,7 @@ namespace spkdfs {
     if (offset % inode.getBlockSize() != 0) {
       read_data(inode, make_pair(indexs.first, indexs.first + 1));
     }
-    if (indexs.first != indexs.second - 1 && offset % inode.getBlockSize() != 0) {
+    if (indexs.first != indexs.second - 1 && (offset + size) % inode.getBlockSize() != 0) {
       read_data(inode, make_pair(indexs.second - 1, indexs.second));
     }
 
@@ -462,7 +465,7 @@ namespace spkdfs {
         std::cout << "failed to write data to " << dst << std::endl;
         throw runtime_error("failed to write data to " + dst);
       }
-      dstFile.seekp(left, ios::beg);
+      dstFile.seekp(left);
       dstFile << string(iter, iter + localSize);
       dstFile.close();
       iter += localSize;
@@ -499,7 +502,7 @@ namespace spkdfs {
     Inode inode = get_inode(dst);
     if (inode.sub.size() <= res.back()) {
       inode.sub.resize(res.back() + 1);
-    };
+    }
     int index_filesize, last_index_filesize = 0;
     string index_block;
     for (auto &i : res) {

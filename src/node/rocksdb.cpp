@@ -301,6 +301,6 @@ namespace spkdfs {
     if (!s.ok()) {
       throw runtime_error("batch write not ok" + s.ToString());
     }
-  };
+  }
 
 }  // namespace spkdfs

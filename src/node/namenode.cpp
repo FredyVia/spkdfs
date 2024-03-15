@@ -49,7 +49,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       fail_response(response->mutable_common(), e);
     }
-  };
+  }
 
   void NamenodeServiceImpl::mkdir(::google::protobuf::RpcController* controller,
                                   const NNPathRequest* request, CommonResponse* response,
@@ -135,7 +135,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       fail_response(response->mutable_common(), e);
     }
-  };
+  }
 
   void NamenodeServiceImpl::put(::google::protobuf::RpcController* controller,
                                 const NNPutRequest* request, NNPutResponse* response,
@@ -174,7 +174,7 @@ namespace spkdfs {
     } catch (const std::exception& e) {
       fail_response(response->mutable_common(), e);
     }
-  };
+  }
 
   void NamenodeServiceImpl::put_ok(::google::protobuf::RpcController* controller,
                                    const NNPutOKRequest* request, CommonResponse* response,

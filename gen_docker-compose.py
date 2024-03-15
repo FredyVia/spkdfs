@@ -37,9 +37,7 @@ compose_body = """
     image: spkdfs:latest
     hostname: node${INDEX}
     command:
-      [
-        "--flagfile=/spkdfs/node.conf"
-      ]
+      [ "--flagfile=/spkdfs/node.conf" ]
     volumes:
       - ./tmp/spkdfs_${INDEX}/data:/spkdfs/data
       - ./tmp/spkdfs_${INDEX}/coredumps:/spkdfs/coredumps
@@ -61,7 +59,7 @@ networks:
 """
 
 template_body = Template(compose_body)
-template_conf = Template(compose_conf)
+template_conf = Template(compose_conf.strip())
 IPS = []
 for i in range(1, COUNT_NODES+1):
   IPS.append("192.168.88.1{:02}".format(i))

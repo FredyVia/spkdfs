@@ -24,6 +24,8 @@ namespace spkdfs {
     for (auto& node : datanode_list) {
       node.port = FLAGS_dn_port;
     }
+    LOG(INFO) << "datanode list" << endl;
+    dbg::pretty_print(LOG(INFO), datanode_list);
 
     node_options.fsm = this;
     node_options.node_owns_fsm = false;
@@ -199,7 +201,7 @@ namespace spkdfs {
     }
     file << j.dump();
     file.close();
-  };
+  }
 
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
     string file_path = reader->get_path() + "namenodes.json";

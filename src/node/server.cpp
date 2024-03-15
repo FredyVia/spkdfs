@@ -76,8 +76,7 @@ namespace spkdfs {
   void Server::waiting_for_rpc() {
     while (true) {
       brpc::Channel channel;
-      brpc::ChannelOptions options;
-      if (channel.Init(my_ip.c_str(), FLAGS_dn_port, &options) != 0) {
+      if (channel.Init(my_ip.c_str(), FLAGS_dn_port, NULL) != 0) {
         throw runtime_error("init channel failed");
       }
       brpc::Controller cntl;

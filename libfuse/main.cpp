@@ -62,7 +62,7 @@ public:
   FUSE(const string &ips) {
     nodes = parse_nodes(ips);
     init();
-  };
+  }
 
   ~FUSE() { deinit(); }
 
@@ -133,7 +133,7 @@ public:
       reinit();
       sdk->mkdir(dst);
     }
-  };
+  }
 
   void rm(const std::string &dst) {
     cout << "libfuse rm: " << dst << endl;
@@ -209,7 +209,7 @@ public:
   }
 
   void write(const std::string &dst, uint64_t offset, const std::string &s) {
-    cout << "libfuse write: " << dst << endl;
+    cout << "libfuse write: " << dst << ", offset: " << offset << endl;
     try {
       sdk->write_data(dst, offset, s);
     } catch (const spkdfs::MessageException &e) {

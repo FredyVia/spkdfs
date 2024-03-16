@@ -92,7 +92,7 @@ namespace spkdfs {
 
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
-    cout << inode.value() << endl;
+    // cout << inode.value() << endl;
     return inode;
   }
 
@@ -384,7 +384,7 @@ namespace spkdfs {
         break;
       }
       string blks = *iter;
-      tmp_path = get_tmp_index_path(inode.fullpath, index);
+      tmp_path = get_tmp_index_path(inode.get_fullpath(), index);
       pathlocks.lock(tmp_path);
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         int filesize = fs::file_size(tmp_path);
@@ -462,7 +462,7 @@ namespace spkdfs {
       string dst = get_tmp_index_path(path, index);
 
       // using ios::binary only will clear the file
-      ofstream dstFile(dst, ios::binary | ios::app);  
+      ofstream dstFile(dst, ios::binary | ios::app);
       if (!dstFile) {
         std::cout << "failed to write data to " << dst << std::endl;
         throw runtime_error("failed to write data to " + dst);

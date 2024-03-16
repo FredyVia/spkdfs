@@ -11,7 +11,8 @@ namespace spkdfs {
   inline int align_up(int n, int alignment) { return (n + alignment - 1) / alignment; };
   inline int align_down(int n, int alignment) { return align_index_down(n, alignment); };
   void createDirectoryIfNotExist(const std::string& dir);
-  std::string cal_sha256sum(std::string);
-  std::string cal_md5sum(std::string);
+  std::string cal_sha256sum(const std::string&);
+  std::string cal_md5sum(const std::string&);
+  std::string simplify_path(const std::string&);
 }  // namespace spkdfs
 #endif

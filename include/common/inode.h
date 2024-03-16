@@ -16,6 +16,8 @@
 // #include <shared_mutex>
 #include <string>
 
+#include "common/utils.h"
+
 namespace spkdfs {
   class StorageType {
   protected:
@@ -76,10 +78,15 @@ namespace spkdfs {
   std::vector<std::pair<std::string, std::string>> decode_one_sub(const std::string& str);
   std::string encode_one_sub(const std::vector<std::pair<std::string, std::string>>& sub);
   class Inode {
-  public:
     std::string fullpath;
-    bool is_directory;
-    uint64_t filesize;
+
+  public:
+    inline void set_fullpath(const std::string& fullpath) {
+      this->fullpath = simplify_path(fullpath);
+    }
+    inline std::string get_fullpath() const { return fullpath; }
+    bool is_directory = false;
+    uint64_t filesize = 0;
     std::shared_ptr<StorageType> storage_type_ptr;
     std::vector<std::string> sub;
     bool valid;
@@ -89,7 +96,11 @@ namespace spkdfs {
       return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
     }
     inline std::string filename() const {
-      return std::filesystem::path(fullpath).filename().string();
+      std::string s = std::filesystem::path(fullpath).filename().string();
+      if (is_directory) {
+        s += "/";
+      }
+      return s;
     }
     inline std::string parent_path() const {
       return std::filesystem::path(fullpath).parent_path().string();

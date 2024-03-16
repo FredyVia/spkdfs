@@ -1,6 +1,8 @@
 1. to do:
   * dynamic node management
   * dynamic block repair
+  * guess storage by RS<RE<>>
+  * not support 12+8
 
 | 文件大小 | 纠删码、切片(MB) | f_spkdfs时间(s) | scp     |
 | -------- | ---------------- | --------------- | ------- |

@@ -66,7 +66,7 @@ namespace spkdfs {
                                     &encoded_parity, &encoded_fragment_len);
     if (ret != 0) {
       liberasurecode_instance_destroy(instance);
-      throw runtime_error("encode error");
+      throw runtime_error("encode error, error code: " + std::to_string(ret));
     }
     vector<string> res(k + m, string(encoded_fragment_len, ' '));
     for (int i = 0; i < k; i++) {
@@ -143,7 +143,7 @@ namespace spkdfs {
       res += to_string(nodes_hashs[i].first) + "|" + nodes_hashs[i].second + ",";
     }
     res.pop_back();
-    LOG(INFO) << res;
+    // LOG(INFO) << res;
     return res;
   }
 
@@ -164,9 +164,12 @@ namespace spkdfs {
   }
 
   void to_json(nlohmann::json& j, const Inode& inode) {
-    j = nlohmann::json{{"fullpath", inode.fullpath}, {"is_directory", inode.is_directory},
-                       {"filesize", inode.filesize}, {"sub", inode.sub},
-                       {"valid", inode.valid},       {"building", inode.building}};
+    j = nlohmann::json{{"fullpath", inode.get_fullpath()},
+                       {"is_directory", inode.is_directory},
+                       {"filesize", inode.filesize},
+                       {"sub", inode.sub},
+                       {"valid", inode.valid},
+                       {"building", inode.building}};
     //  ,{"modification_time", inode.modification_time}
 
     if (inode.storage_type_ptr != nullptr) {
@@ -177,12 +180,12 @@ namespace spkdfs {
   }
 
   void from_json(const nlohmann::json& j, Inode& inode) {
-    inode.fullpath = j.at("fullpath").get<std::string>();
+    inode.set_fullpath(j.at("fullpath").get<std::string>());
     inode.is_directory = j.at("is_directory").get<bool>();
     inode.filesize = j.at("filesize").get<uint64_t>();
     inode.storage_type_ptr = nullptr;
     if (j.find("storage_type") != j.end()) {
-      LOG(INFO) << j.at("storage_type");
+      // LOG(INFO) << j.at("storage_type");
       auto storage_type_json = nlohmann::json::parse(j.at("storage_type").get<std::string>());
       from_json(storage_type_json, inode.storage_type_ptr);
     }

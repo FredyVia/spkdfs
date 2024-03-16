@@ -5,7 +5,7 @@
 namespace spkdfs {
   void PathLocks::lock(const std::string& key) {
     std::unique_lock<std::shared_mutex> lock(mapMutex);
-    LOG(INFO) << "lock: " << key;
+    // LOG(INFO) << "lock: " << key;
     // 如果键不存在，则创建一个新的锁
     if (locks.find(key) == locks.end()) {
       locks[key] = std::make_unique<std::mutex>();
@@ -23,7 +23,7 @@ namespace spkdfs {
 
   void PathLocks::unlock(const std::string& key) {
     std::shared_lock<std::shared_mutex> lock(mapMutex);  // 只读访问映射
-    LOG(INFO) << "unlock: " << key;
+    // LOG(INFO) << "unlock: " << key;
     auto it = locks.find(key);
     if (it != locks.end()) {
       it->second->unlock();

@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
         cout << sub << endl;
       }
     } else {
-      cout << inode.fullpath << " " << inode.filesize << " "
+      cout << inode.get_fullpath() << " " << inode.filesize << " "
            << (inode.storage_type_ptr == nullptr ? "UNKNOWN" : inode.storage_type_ptr->to_string())
            << endl;
     }

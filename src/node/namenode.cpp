@@ -40,7 +40,7 @@ namespace spkdfs {
     try {
       LOG(INFO) << "rpc: ls";
       Inode inode;
-      inode.fullpath = request->path().empty() ? "/" : request->path();
+      inode.set_fullpath(request->path().empty() ? "/" : request->path());
       nn_raft_ptr->ls(inode);
       response->mutable_common()->set_success(true);
       *(response->mutable_data()) = inode.value();
@@ -69,12 +69,15 @@ namespace spkdfs {
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
+      string path = request->path();
+      if (path[0] != '/') {
+        path = "/" + path;
+      }
 
       Inode inode;
-      inode.fullpath = request->path();
-      if (inode.fullpath[0] != '/') {
-        inode.fullpath = "/" + inode.fullpath;
-      }
+      inode.set_fullpath(path);
+      // check in rocksdb
+      // if(inode.get_fullpath() == "/") throw MessageException("cannot mkdir /")
       nn_raft_ptr->prepare_mkdir(inode);
       // task.data
 
@@ -115,7 +118,7 @@ namespace spkdfs {
       }
 
       Inode inode;
-      inode.fullpath = request->path();
+      inode.set_fullpath(request->path());
 
       nn_raft_ptr->prepare_rm(inode);
       // task.data
@@ -157,7 +160,7 @@ namespace spkdfs {
         throw runtime_error("parameter path required");
       }
       Inode inode;
-      inode.fullpath = request->path();
+      inode.set_fullpath(request->path());
       nn_raft_ptr->prepare_put(inode);
       inode.storage_type_ptr = StorageType::from_string(request->storage_type());
       LOG(INFO) << "prepare put inode's prepare_put" << inode.value();
@@ -187,7 +190,7 @@ namespace spkdfs {
         throw runtime_error("parameter path required");
       }
       Inode inode;
-      inode.fullpath = request->path();
+      inode.set_fullpath(request->path());
       nn_raft_ptr->prepare_put_ok(inode);
       inode.sub = vector<string>(request->sub().begin(), request->sub().end());
       inode.filesize = request->filesize();

@@ -18,6 +18,8 @@
 
 namespace spkdfs {
   using namespace std;
+  namespace fs = std::filesystem;
+
   std::set<std::string> get_all_ips() {
     std::set<std::string> res;
     struct ifaddrs *interfaces = nullptr;
@@ -91,7 +93,7 @@ namespace spkdfs {
       }
     }
   }
-  std::string cal_sha256sum(std::string data) {
+  std::string cal_sha256sum(const std::string &data) {
     string sha256sum;
     CryptoPP::SHA256 sha256;
     CryptoPP::StringSource ss(
@@ -101,13 +103,22 @@ namespace spkdfs {
     return sha256sum;
   }
 
-  std::string cal_md5sum(std::string data) {
+  std::string cal_md5sum(const std::string &data) {
     string md5sum;
     CryptoPP::Weak1::MD5 md5;
     CryptoPP::StringSource ss(
         data, true,
         new CryptoPP::HashFilter(md5, new CryptoPP::HexEncoder(new CryptoPP::StringSink(md5sum))));
-
     return md5sum;
+  }
+  std::string simplify_path(const std::string &path) {
+    // 假设这是你的原始路径
+    // 使用filesystem库规范化路径
+    fs::path fs_path(path);
+    string res = fs_path.lexically_normal();
+    if (res.size() > 1 && res.back() == '/') {
+      res.pop_back();
+    }
+    return res;
   }
 }  // namespace spkdfs

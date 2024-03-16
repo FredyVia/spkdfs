@@ -353,11 +353,11 @@ namespace spkdfs {
   }
 
   void SDK::ln_path_index(const std::string &path, uint32_t index) const {
-    cout << "creating hardlink" << get_tmp_write_path(path) + "/" + std::to_string(index)
-         << " >>>>> " << get_tmp_index_path(path, index) << endl;
-    fs::remove(get_tmp_write_path(path) + "/" + std::to_string(index));
-    std::filesystem::create_hard_link(get_tmp_index_path(path, index),
-                                      get_tmp_write_path(path) + "/" + std::to_string(index));
+    string hard_ln_path = get_tmp_write_path(path) + "/" + std::to_string(index);
+    cout << "creating hardlink: " << hard_ln_path << " >>>>> " << get_tmp_index_path(path, index)
+         << endl;
+    fs::remove(hard_ln_path);
+    std::filesystem::create_hard_link(get_tmp_index_path(path, index), hard_ln_path);
   }
 
   inline std::string SDK::get_tmp_write_path(const string &path) const {
@@ -440,14 +440,15 @@ namespace spkdfs {
 
     Inode inode = get_inode(path);
 
-    int size = s.size();
+    size_t size = s.size();
     auto iter = s.begin();
 
-    pair<int, int> indexs = get_indexs(inode, offset, s.size());
-    if (offset % inode.getBlockSize() != 0) {
+    pair<int, int> indexs = get_indexs(inode, offset, size);
+    if (offset < inode.filesize && offset % inode.getBlockSize() != 0) {
       read_data(inode, make_pair(indexs.first, indexs.first + 1));
     }
-    if (indexs.first != indexs.second - 1 && (offset + size) % inode.getBlockSize() != 0) {
+    if (offset + size < inode.filesize && indexs.first != indexs.second - 1
+        && (offset + size) % inode.getBlockSize() != 0) {
       read_data(inode, make_pair(indexs.second - 1, indexs.second));
     }
 
@@ -460,11 +461,13 @@ namespace spkdfs {
 
       string dst = get_tmp_index_path(path, index);
 
-      ofstream dstFile(dst, std::ios::binary);
+      // using ios::binary only will clear the file
+      ofstream dstFile(dst, ios::binary | ios::app);  
       if (!dstFile) {
         std::cout << "failed to write data to " << dst << std::endl;
         throw runtime_error("failed to write data to " + dst);
       }
+      cout << "seek begin: " << left << ", seek end: " << right << endl;
       dstFile.seekp(left);
       dstFile << string(iter, iter + localSize);
       dstFile.close();

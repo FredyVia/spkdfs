@@ -209,7 +209,7 @@ public:
   }
 
   void write(const std::string &dst, uint64_t offset, const std::string &s) {
-    cout << "libfuse write: " << dst << ", offset: " << offset << endl;
+    cout << "libfuse write: " << dst << ", offset: " << offset << ", size: " << s.size() << endl;
     try {
       sdk->write_data(dst, offset, s);
     } catch (const spkdfs::MessageException &e) {

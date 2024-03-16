@@ -33,7 +33,7 @@ RUN if [ "$TARGETPLATFORM" = "linux/amd64" ]; then \
   else \
   echo "Unsupported architecture: $TARGETPLATFORM" && exit 1; \
   fi && \
-  mv /vcpkg/installed/${TRIPLET}/lib /vcpkg_lib
+  ln -s /vcpkg/installed/${TRIPLET}/lib /vcpkg_lib
 ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}
 ENTRYPOINT [ "/node" ]
 CMD [ "--help" ]

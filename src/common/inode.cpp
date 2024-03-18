@@ -1,10 +1,11 @@
 #include "common/inode.h"
 
+#include "common/config.h"
+#include "common/exception.h"
 #include "common/utils.h"
 #include "erasurecode.h"
-#define max(a, b) (a) > (b) ? (a) : (b)
+#include "service.pb.h"
 // #include "erasure_code/ErasureCodeClay.h"
-
 namespace spkdfs {
   using json = nlohmann::json;
   using namespace std;
@@ -136,6 +137,48 @@ namespace spkdfs {
     return j.dump();
   }
 
+  void Inode::lock() {
+    uint64_t now = get_time();
+    if (ddl_lock < now) {
+      throw MessageException(EXPECTED_LOCK_CONFLICT,
+                             fullpath + " file is being edit! ddl_lock: " + std::to_string(ddl_lock)
+                                 + ", now: " + std::to_string(now));
+    }
+    ddl_lock = now + LOCK_REFRESH_INTERVAL;
+  }
+
+  void Inode::unlock() { ddl_lock = 0; }
+
+  void Inode::update_ddl_lock() { ddl_lock = get_time() + LOCK_REFRESH_INTERVAL; }
+
+  std::string Inode::filename() const {
+    std::string s = std::filesystem::path(fullpath).filename().string();
+    if (is_directory) {
+      s += "/";
+    }
+    return s;
+  }
+
+  std::string Inode::parent_path() const {
+    return std::filesystem::path(fullpath).parent_path().string();
+  }
+
+  inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
+    return storageType_ptr->to_string();
+  }
+
+  Inode Inode::get_default_dir(const string& path) {
+    Inode inode;
+    inode.set_fullpath(path);
+    inode.is_directory = true;
+    inode.filesize = 0;
+    inode.storage_type_ptr = nullptr;
+    inode.sub = {};
+    inode.valid = true;
+    inode.ddl_lock = 0;
+    return inode;
+  }
+
   std::string encode_one_sub(const std::vector<std::pair<std::string, std::string>>& nodes_hashs) {
     string res;
     for (int i = 0; i < nodes_hashs.size(); i++) {
@@ -169,7 +212,7 @@ namespace spkdfs {
                        {"filesize", inode.filesize},
                        {"sub", inode.sub},
                        {"valid", inode.valid},
-                       {"building", inode.building}};
+                       {"ddl_lock", inode.ddl_lock}};
     //  ,{"modification_time", inode.modification_time}
 
     if (inode.storage_type_ptr != nullptr) {
@@ -191,7 +234,7 @@ namespace spkdfs {
     }
     inode.sub = j.at("sub").get<std::vector<std::string>>();
     inode.valid = j.at("valid").get<bool>();
-    inode.building = j.at("building").get<bool>();
+    inode.ddl_lock = j.at("ddl_lock").get<uint64_t>();
     // inode.modification_time = j.at("modification_time").get<int>();
   }
 }  // namespace spkdfs

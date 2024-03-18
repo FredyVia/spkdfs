@@ -7,6 +7,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
+#include "common/config.h"
 #include "common/exception.h"
 #include "common/utils.h"
 
@@ -55,6 +56,38 @@ namespace spkdfs {
     }
     nn_master_stub_ptr = new NamenodeService_Stub(&nn_master_channel);
     cout << endl;
+
+    timer = make_shared<IntervalTimer>(
+        max(LOCK_REFRESH_INTERVAL >> 2, 5),
+        [this]() {
+          if (remoteLocks.empty()) {
+            return;
+          }
+          int retryCount = 0;  // 重试计数器
+          while (true) {
+            try {
+              std::shared_lock<std::shared_mutex> lock(mutex_remoteLocks);
+              vector<string> paths;
+              for (auto &p : remoteLocks) {
+                paths.push_back(p.first);
+              }
+              lock.unlock();
+              lock_remote(paths);
+
+              break;
+            } catch (const exception &e) {
+              if (retryCount >= 3) {  // 允许最多重试3次
+                cout << "retry error" << e.what() << endl;
+                throw IntervalTimer::TimeoutException("timeout", e.what());
+              }
+              retryCount++;  // 增加重试计数器
+              continue;      // 跳过当前迭代的其余部分
+            }
+          }
+        },
+        [this](const void *args) {
+          throw runtime_error(string("update lock fail ") + (const char *)args);
+        });
   }
 
   DatanodeService_Stub *SDK::get_dn_stub(const std::string &node) {
@@ -150,7 +183,10 @@ namespace spkdfs {
   void SDK::open(const std::string &path, int flags) {
     cout << "open flags: " << flags << endl;
     createDirectoryIfNotExist(get_tmp_path(path));
-    if ((flags & O_ACCMODE) != O_RDONLY) createDirectoryIfNotExist(get_tmp_write_path(path));
+    if ((flags & O_ACCMODE) != O_RDONLY) {
+      createDirectoryIfNotExist(get_tmp_write_path(path));
+      lock(path);
+    }
     if (flags & O_CREAT) {
       cout << "open with flag: O_CREAT" << endl;
       create(path);
@@ -161,12 +197,37 @@ namespace spkdfs {
     }
   }
 
-  void SDK::close(const std::string &dst) { fsync(dst); }
+  void SDK::lock_remote(const std::vector<std::string> &paths) {
+    brpc::Controller cntl;
+    NNLockRequest request;
+    CommonResponse response;
+    for (auto &s : paths) {
+      request.add_paths(s);
+    }
+    nn_master_stub_ptr->update_lock(&cntl, &request, &response, NULL);
+    check_response(cntl, response.common());
+  }
+
+  void SDK::close(const std::string &dst) {
+    fsync(dst);
+    unlock(dst);
+  }
+
+  void SDK::lock(const std::string &dst) {
+    vector<string> res = {dst};
+    lock_remote(res);
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.insert(make_pair(dst, get_inode(dst)));
+  }
+
+  void SDK::unlock(const std::string &dst) {
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.erase(dst);
+  }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
                 const std::string &storage_type) {
     shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(storage_type);
-
     cout << "opening file " << srcFilePath << endl;
     ifstream ifile(srcFilePath, ios::binary);
     if (!ifile.is_open()) {
@@ -182,6 +243,7 @@ namespace spkdfs {
     nn_master_stub_ptr->put(&cntl, &nn_put_req, &nn_put_resp, NULL);
     check_response(cntl, nn_put_resp.common());
 
+    lock(dstFilePath);
     NNPutOKRequest nn_putok_req;
     *(nn_putok_req.mutable_path()) = dstFilePath;
     nn_putok_req.set_filesize(filesize);
@@ -203,7 +265,7 @@ namespace spkdfs {
       blockIndex++;
     }
     ifile.close();
-
+    unlock(dstFilePath);
     CommonResponse response;
     cntl.Reset();
     nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);

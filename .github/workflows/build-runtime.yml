@@ -8,6 +8,10 @@ on:
         required: true
         default: 'latest'
 
+concurrency: 
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest

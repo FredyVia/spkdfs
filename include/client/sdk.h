@@ -19,7 +19,11 @@ namespace spkdfs {
     NamenodeService_Stub* nn_master_stub_ptr;
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
     PathLocks pathlocks;
-    // map<std::string, Inode> inodeCache;
+
+    std::shared_mutex mutex_remoteLocks;  // 用于保护锁映射的互斥量
+    std::map<std::string, Inode> remoteLocks;
+    std::shared_ptr<IntervalTimer> timer;
+
     DatanodeService_Stub* get_dn_stub(const std::string& node);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);
@@ -31,6 +35,9 @@ namespace spkdfs {
     std::string get_tmp_index_path(const std::string& path, uint32_t index) const;
     std::string encode_one(std::shared_ptr<StorageType> storage_type_ptr, const std::string& block);
     std::string decode_one(std::shared_ptr<StorageType> storage_type_ptr, const std::string& s);
+    void lock(const std::string& dst);
+    void unlock(const std::string& dst);
+    void lock_remote(const std::vector<std::string>& paths);
 
   public:
     std::vector<std::string> get_online_datanodes();

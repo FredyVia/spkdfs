@@ -14,9 +14,9 @@
 using namespace std;
 using namespace spkdfs;
 
-TEST(ClientTest, encode_decode) {}
+TEST(Client, encode_decode) {}
 
-TEST(ClientTest, mkdir) {
+TEST(Client, mkdir) {
   SDK sdk("192.168.88.112:8001");
   // should be sequencial
   vector<string> datas = {
@@ -55,7 +55,7 @@ TEST(ClientTest, mkdir) {
   }
 }
 
-TEST(ClientTest, concurrency) {
+TEST(Client, concurrency) {
   SDK sdk("192.168.88.112:8001");
   vector<std::thread> threads;
   string data = "/tests/";
@@ -95,7 +95,7 @@ TEST(TestCommon, alignup) {
     EXPECT_EQ(align_index_up(vec[0], vec[1]), vec[3]);
   }
 }
-TEST(SDKTest, read_data_edge) {}
+TEST(SDK, read_data_edge) {}
 TEST(TestCommon, hash) {
   // md5sum, sha256sum
   vector<vector<string>> vec

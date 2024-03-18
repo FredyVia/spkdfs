@@ -58,6 +58,7 @@ namespace spkdfs {
   void RaftDN::add_node(const Node& node) { raft_node->add_peer(node.to_peerid(), NULL); }
   void RaftDN::remove_node(const Node& node) { raft_node->remove_peer(node.to_peerid(), NULL); }
   void RaftDN::on_apply(braft::Iterator& iter) {
+    LOG(INFO) << "datanode on_apply";
     // 实现细节
     butil::IOBuf data;
     for (; iter.valid(); iter.next()) {
@@ -78,15 +79,16 @@ namespace spkdfs {
       return;
     }
     LOG(INFO) << "start nn_timer";
-    nn_timer = new NNTimer(
-        10,
+    nn_timer = new IntervalTimer(
+        NN_INTERVAL,
         [this]() {
-          size_t retryCount = 0;  // 重试计数器
+          int retryCount = 0;  // 重试计数器
           for (size_t i = 0; i < namenode_list.size(); ++i) {
             namenode_list[i].scan();
             if (namenode_list[i].nodeStatus == NodeStatus::OFFLINE) {
+              LOG(INFO) << "retry:" << namenode_list[i];
               if (retryCount >= 3) {  // 允许最多重试3次
-                throw NNTimer::TimeoutException("timeout", namenode_list[i].ip.c_str());
+                throw IntervalTimer::TimeoutException("timeout", namenode_list[i].ip.c_str());
               }
               i--;           // 减少索引以在下一次迭代中重新扫描同一节点
               retryCount++;  // 增加重试计数器
@@ -215,25 +217,6 @@ namespace spkdfs {
     LOG(INFO) << "propose namenodes:";
     dbg::pretty_print(LOG(INFO), namenode_list);
     return 0;
-  }
-  NNTimer::NNTimer(uint interval, const RunFuncType& runFunc, const TimeoutFuncType& timeoutFunc)
-      : interval(interval), runFunc(runFunc), timeoutFunc(timeoutFunc) {
-    t = new std::thread([this]() {
-      try {
-        while (running) {
-          std::this_thread::sleep_for(std::chrono::seconds(this->interval));
-          this->runFunc();
-        }
-      } catch (const TimeoutException& e) {
-        running = false;
-        this->timeoutFunc(e.get_data());
-      }
-    });
-  }
-  NNTimer::~NNTimer() {
-    running = false;
-    t->join();
-    delete t;
   }
 
   // void RaftDN::on_shutdown() { LOG(INFO) << "This node is down" ; }

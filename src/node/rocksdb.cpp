@@ -141,12 +141,6 @@ namespace spkdfs {
   void RocksDB::prepare_mkdir(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
     try_to_add(inode);
-    inode.is_directory = true;
-    inode.filesize = 0;
-    inode.storage_type_ptr = nullptr;
-    inode.sub = {};
-    inode.valid = true;
-    inode.building = false;
   }
 
   void RocksDB::get_inode(Inode& inode) {
@@ -174,14 +168,14 @@ namespace spkdfs {
 
   void RocksDB::prepare_put(Inode& inode) {
     if (db_ptr == nullptr) throw runtime_error(string(__func__) + "db not ready");
-
+    // must get_inode(inode) before inode.lock()
     get_inode(inode);
     if (inode.valid && inode.is_directory) {
       throw MessageException(PATH_EXISTS_EXCEPTION, inode.get_fullpath());
     }
     inode.is_directory = false;
     inode.valid = true;
-    inode.building = true;
+    inode.lock();
   }
 
   void RocksDB::prepare_put_ok(Inode& inode) {
@@ -227,13 +221,7 @@ namespace spkdfs {
     if (s.IsNotFound()) {
       // parent_path must be "/"
       assert(inode.parent_path() == "/");  // may be deleted before this operation
-      parent_inode.set_fullpath("/");
-      parent_inode.is_directory = true;
-      parent_inode.filesize = 0;
-      parent_inode.storage_type_ptr = nullptr;
-      parent_inode.sub = {};
-      parent_inode.valid = true;
-      parent_inode.building = false;
+      parent_inode = Inode::get_default_dir("/");
     } else if (s.ok()) {
       auto _json = json::parse(value);
       parent_inode = _json.get<Inode>();
@@ -252,13 +240,11 @@ namespace spkdfs {
     if (iter == parent_inode.sub.end()) {
       parent_inode.sub.push_back(inode.filename());
     }
-    s = get(inode.get_fullpath(), value);
-    if (!s.ok()) {
-      throw runtime_error("internal get not ok" + s.ToString());
-    }
-    auto _json = json::parse(value);
-    Inode db_inode = _json.get<Inode>();
-    db_inode.building = false;
+    Inode db_inode;
+    db_inode.set_fullpath(inode.get_fullpath());
+    // must get_inode(inode) before inode.lock()
+    get_inode(db_inode);
+    db_inode.unlock();
     db_inode.sub = inode.sub;
     db_inode.filesize = inode.filesize;
     LOG(INFO) << "parent_inode:" << parent_inode.value();

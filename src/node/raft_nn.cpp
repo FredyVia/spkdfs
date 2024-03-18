@@ -68,14 +68,16 @@ namespace spkdfs {
       LOG(INFO) << "on apply";
 
       butil::IOBuf data = iter.data();
-      uint8_t type = OP_UNKNOWN;
-      data.cutn(&type, sizeof(uint8_t));
-      string str_inode;
-      data.copy_to(&str_inode);
-      auto _json = json::parse(str_inode);
-      Inode inode = _json.get<Inode>();
       CommonClosure* c = dynamic_cast<CommonClosure*>(iter.done());
       try {
+        enum OpType type = OP_UNKNOWN;
+        // here must be uint8_t, or will cut more when using sizeof(enum OpType)
+        data.cutn(&type, sizeof(uint8_t));
+        string str_inode;
+        data.copy_to(&str_inode);
+        LOG(INFO) << "inode info: " << str_inode;
+        auto _json = json::parse(str_inode);
+        Inode inode = _json.get<Inode>();
         switch (type) {
           case OP_MKDIR:
             internal_mkdir(inode);
@@ -94,11 +96,12 @@ namespace spkdfs {
             LOG(ERROR) << "Unknown type=" << static_cast<int>(type);
             break;
         }
+        if (c != nullptr) c->succ_response();
       } catch (const MessageException& e) {
-        c->fail_response(e);
+        if (c != nullptr) c->fail_response(e);
         LOG(ERROR) << e.what();
       } catch (const exception& e) {
-        c->fail_response(e);
+        if (c != nullptr) c->fail_response(e);
         LOG(ERROR) << e.what();
       }
     }

@@ -12,6 +12,7 @@
 #include <glog/logging.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
+#include <time.h>
 
 #include <filesystem>
 #include <fstream>
@@ -21,6 +22,36 @@
 namespace spkdfs {
   using namespace std;
   namespace fs = std::filesystem;
+  int64_t time_shifting = 0;
+
+  IntervalTimer::IntervalTimer(uint interval, const RunFuncType &runFunc,
+                               const TimeoutFuncType &timeoutFunc)
+      : interval(interval), runFunc(runFunc), timeoutFunc(timeoutFunc) {
+    t = make_shared<std::thread>([this]() {
+      try {
+        std::unique_lock<std::mutex> lock(this->mtx);
+        while (running) {
+          // wait_for(lock, interval, pred);
+          // wait when pred is false, go through when pred is true
+          this->cv.wait_for(lock, std::chrono::seconds(this->interval));
+          if (running) this->runFunc();
+        }
+      } catch (const TimeoutException &e) {
+        this->timeoutFunc(e.get_data());
+      }
+    });
+  }
+
+  void IntervalTimer::stop() {
+    {
+      std::lock_guard<std::mutex> lock(mtx);
+      running = false;
+    }
+    cv.notify_one();
+    if (t->joinable()) t->join();
+  }
+
+  IntervalTimer::~IntervalTimer() { stop(); }
 
   std::set<std::string> get_all_ips() {
     std::set<std::string> res;
@@ -95,6 +126,7 @@ namespace spkdfs {
       }
     }
   }
+
   std::string cal_sha256sum(const std::string &data) {
     string sha256sum;
     CryptoPP::SHA256 sha256;

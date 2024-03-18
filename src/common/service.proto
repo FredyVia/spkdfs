@@ -8,7 +8,9 @@ enum ERROR_CODE {
   PATH_NOT_EXISTS_EXCEPTION = 2;
   EXPECTED_FILE_EXCEPTION = 3;
   EXPECTED_DIR_EXCEPTION = 4;
-  OUT_OF_RANGE_EXCEPTION = 5;
+  EXPECTED_LOCK_CONFLICT = 5;
+  REDIRECT_TO_MASTER = 6;
+  OUT_OF_RANGE_EXCEPTION = 7;
 };
 // 定义一个错误消息
 message ErrorMessage {
@@ -22,8 +24,6 @@ message Request {
 message Response {
   bool success = 1;
   ErrorMessage fail_info = 2;
-  string redirect = 3;
-// int fail_code = 4;
 };
 
 message CommonResponse {
@@ -72,6 +72,10 @@ message NNGetDatanodesResponse {
   repeated string nodes = 2;
 };
 
+message NNLockRequest {
+  repeated string paths = 1;
+}
+
 service NamenodeService {
   rpc ls(NNPathRequest) returns (NNLsResponse);
   rpc mkdir(NNPathRequest) returns (CommonResponse);
@@ -80,7 +84,7 @@ service NamenodeService {
   // datanode notice namenode blk storeed ok;
   rpc put_ok(NNPutOKRequest) returns (CommonResponse);
   rpc get_master(Request) returns (NNGetMasterResponse);
-  // rpc get_datanodes(Request) returns (NNGetDatanodesResponse);
+  rpc update_lock(NNLockRequest) returns (CommonResponse);
 };
 
 message DNGetRequest {

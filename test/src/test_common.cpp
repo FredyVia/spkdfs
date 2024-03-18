@@ -8,8 +8,9 @@
 
 using namespace std;
 using namespace spkdfs;
+using json = nlohmann::json;
 
-TEST(NodeTest, parse_nodes) {
+TEST(Node, parse_nodes) {
   vector<vector<pair<string, int>>> ipports_group = {
       {{"127.0.0.1", 10086}, {"127.0.0.2", 10086}, {"127.0.0.3", 10086}}, {{{"127.0.0.1", 10086}}}};
   for (auto &ipports : ipports_group) {
@@ -38,7 +39,7 @@ TEST(NodeTest, parse_nodes) {
   }
 }
 
-TEST(InodeTest, RSStorageType) {
+TEST(Inode, RSStorageType) {
   vector<pair<string, vector<int>>> res = {
       {"RS<1,2,3>", {1, 2, 3}},
       {"RS<888,88,8>", {888, 88, 8}},
@@ -53,7 +54,7 @@ TEST(InodeTest, RSStorageType) {
   }
 }
 
-TEST(InodeTest, REStorageType) {
+TEST(Inode, REStorageType) {
   vector<pair<string, vector<int>>> res = {
       {"RE<2,3>", {2, 3}},
       {"RE<88,8>", {88, 8}},
@@ -67,7 +68,7 @@ TEST(InodeTest, REStorageType) {
   }
 }
 
-TEST(InodeTest, inode_parent_path) {
+TEST(Inode, inode_parent_path) {
   vector<vector<string>> datas = {
       {"/tests", "/"},           {"/tests/", "/"}, {"/tests/abc", "/tests"},
       {"/tests/abc/", "/tests"}, {"//", "/"},      {"/", "/"},
@@ -81,7 +82,7 @@ TEST(InodeTest, inode_parent_path) {
   }
 }
 
-TEST(ClientTest, RS_encode_decode) {
+TEST(Client, RS_encode_decode) {
   vector<string> datas = {"12345", "qwer", "", "\0"};
 
   // fatal "RS<12,8,16>", "RS<12,8,64>" "RS<12,8,256>",
@@ -117,12 +118,12 @@ TEST(ClientTest, RS_encode_decode) {
   }
 }
 
-TEST(InodeTest, full_path) {}
+TEST(Inode, full_path) {}
 
-TEST(InodeTest, from_json) {}
+TEST(Inode, from_json) {}
 
-TEST(InodeTest, to_json) {}
-TEST(InodeTest, stl) {
+TEST(Inode, to_json) {}
+TEST(Common, stl) {
   try {
     string s;
     s.pop_back();
@@ -140,4 +141,32 @@ TEST(InodeTest, stl) {
   } catch (std::string const &ex) {
     SUCCEED() << "re throw go here";
   }
+}
+TEST(Inode, json) {
+  vector<string> datas = {"/", "/abc"};
+  for (auto &s : datas) {
+    Inode inode = Inode::get_default_dir(s);
+    auto _json = json::parse(inode.value());
+    Inode tmpInode = _json.get<Inode>();
+    EXPECT_EQ(tmpInode.value(), inode.value());
+  }
+}
+TEST(Utils, timer) {
+  int interval = 3, pre = 0, now = 0, test_times = 3;
+  auto intervalTimer_ptr = make_shared<IntervalTimer>(
+      interval,
+      [&]() {
+        test_times--;
+        cout << "interval timer running" << endl;
+        if (test_times == 0) {
+          throw IntervalTimer::TimeoutException("exit", "");
+        }
+        now = time(NULL);
+        if (pre != 0) {
+          EXPECT_LE(abs(now - pre - interval), 1);
+        }
+        pre = now;
+      },
+      [this](const void *args) {});
+  sleep(4 * interval);
 }

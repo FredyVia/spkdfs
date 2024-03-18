@@ -21,11 +21,11 @@ namespace spkdfs {
                              std::bind(&Server::on_namenodes_change, this, std::placeholders::_1));
     CommonServiceImpl* dn_common_service_ptr = new CommonServiceImpl();
     DatanodeServiceImpl* dn_service_ptr = new DatanodeServiceImpl(my_ip, dn_raft_ptr);
-    if (dn_server.AddService(dn_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
-      throw runtime_error("server failed to add dn service");
-    }
     if (dn_server.AddService(dn_common_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
       throw runtime_error("server failed to add dn common service");
+    }
+    if (dn_server.AddService(dn_service_ptr, brpc::SERVER_OWNS_SERVICE) != 0) {
+      throw runtime_error("server failed to add dn service");
     }
     if (add_service(&dn_server, FLAGS_dn_port) != 0) {
       throw runtime_error("server failed to add dn service");

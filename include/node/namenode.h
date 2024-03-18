@@ -25,11 +25,14 @@ namespace spkdfs {
       std::unique_ptr<CommonClosure> self_guard(this);
       brpc::ClosureGuard done_guard(_done);
     }
+    inline void succ_response() { response->set_success(true); }
     inline void fail_response(const MessageException& e) { spkdfs::fail_response(response, e); }
     inline void fail_response(const std::exception& e) { spkdfs::fail_response(response, e); }
   };
 
   class NamenodeServiceImpl : public NamenodeService {
+    void check_leader(Response* response);
+
   public:
     NamenodeServiceImpl(const std::string& my_ip, RaftNN* nn_raft_ptr)
         : my_ip(my_ip), nn_raft_ptr(nn_raft_ptr) {}
@@ -45,9 +48,8 @@ namespace spkdfs {
                 CommonResponse* response, ::google::protobuf::Closure* done) override;
     void get_master(::google::protobuf::RpcController* controller, const Request* request,
                     NNGetMasterResponse* response, ::google::protobuf::Closure* done) override;
-    // void get_datanodes(::google::protobuf::RpcController* controller, const Request* request,
-    //                 NNGetDatanodesResponse* response, ::google::protobuf::Closure* done)
-    //                 override;
+    void update_lock(::google::protobuf::RpcController* controller, const NNLockRequest* request,
+                     CommonResponse* response, ::google::protobuf::Closure* done) override;
 
   private:
     std::string my_ip;

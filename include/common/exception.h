@@ -14,7 +14,7 @@ namespace spkdfs {
     std::string s;
 
   public:
-    MessageException(const ErrorMessage& e) : errMsg(e) { s = spkdfs::to_string(e); }
+    MessageException(const ErrorMessage& e) : errMsg(e) { s = to_string(e); }
     MessageException(enum ERROR_CODE code, const std::string& info) {
       errMsg.set_code(code);
       errMsg.set_message(info);

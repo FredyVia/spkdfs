@@ -15,13 +15,18 @@
 
 using namespace std;
 using namespace spkdfs;
-
+static bool dumpCallback(const google_breakpad::MinidumpDescriptor& descriptor, void* context,
+                         bool succeeded) {
+  printf("Dump path: %s\n", descriptor.path());
+  return succeeded;
+}
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   createDirectoryIfNotExist(FLAGS_log_dir);
   google::InitGoogleLogging(argv[0]);
   createDirectoryIfNotExist(FLAGS_coredumps_dir);
   google_breakpad::MinidumpDescriptor descriptor(FLAGS_coredumps_dir);
+  google_breakpad::ExceptionHandler eh(descriptor, NULL, dumpCallback, NULL, true, -1);
   createDirectoryIfNotExist(FLAGS_data_dir);
   auto nodes = parse_nodes(FLAGS_nodes);
   spkdfs::Server server(nodes);

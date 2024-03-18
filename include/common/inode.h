@@ -66,9 +66,7 @@ namespace spkdfs {
     virtual int getDecodeBlocks() { return 1; }
   };
 
-  inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr) {
-    return storageType_ptr->to_string();
-  }
+  inline std::string to_string(std::unique_ptr<StorageType> storageType_ptr);
 
   void from_json(const nlohmann::json& j, std::shared_ptr<StorageType>& ptr);
 
@@ -81,32 +79,28 @@ namespace spkdfs {
     std::string fullpath;
 
   public:
+    static Inode get_default_dir(const std::string& path);
     inline void set_fullpath(const std::string& fullpath) {
       this->fullpath = simplify_path(fullpath);
     }
     inline std::string get_fullpath() const { return fullpath; }
+
     bool is_directory = false;
     uint64_t filesize = 0;
     std::shared_ptr<StorageType> storage_type_ptr;
     std::vector<std::string> sub;
     bool valid;
-    bool building;
+    uint64_t ddl_lock;
     // int modification_time;
+    void lock();
+    void unlock();
+    void update_ddl_lock();
+    std::string filename() const;
+    std::string parent_path() const;
+    std::string value() const;
     inline int getBlockSize() const {
       return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
     }
-    inline std::string filename() const {
-      std::string s = std::filesystem::path(fullpath).filename().string();
-      if (is_directory) {
-        s += "/";
-      }
-      return s;
-    }
-    inline std::string parent_path() const {
-      return std::filesystem::path(fullpath).parent_path().string();
-    }
-    inline std::string key() const { return fullpath; }
-    std::string value() const;
   };
 
   void to_json(nlohmann::json& j, const Inode& inode);

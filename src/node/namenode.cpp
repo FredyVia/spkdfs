@@ -18,8 +18,19 @@ namespace spkdfs {
 
   namespace fs = std::filesystem;
 
+  void NamenodeServiceImpl::check_leader(Response* response) {
+    Node leader = nn_raft_ptr->leader();
+    if (!leader.valid()) {
+      throw runtime_error("leader not ready");
+    }
+    if (leader.ip != my_ip) {
+      throw MessageException(REDIRECT_TO_MASTER, leader.ip);
+    }
+  }
+
   void fail_response(Response* response, const std::exception& e) {
     LOG(ERROR) << e.what();
+    google::FlushLogFiles(google::INFO);
     response->set_success(false);
     ErrorMessage errMsg;
     errMsg.set_code(COMMON_EXCEPTION);
@@ -29,6 +40,7 @@ namespace spkdfs {
 
   void fail_response(Response* response, const MessageException& e) {
     LOG(ERROR) << e.what();
+    google::FlushLogFiles(google::INFO);
     response->set_success(false);
     *(response->mutable_fail_info()) = e.errorMessage();
   }
@@ -57,15 +69,7 @@ namespace spkdfs {
     brpc::ClosureGuard done_guard(done);
     try {
       LOG(INFO) << "rpc: mkdir";
-      Node leader = nn_raft_ptr->leader();
-      if (!leader.valid()) {
-        throw runtime_error("leader not ready");
-      }
-      if (leader.ip != my_ip) {
-        response->mutable_common()->set_success(false);
-        *(response->mutable_common()->mutable_redirect()) = to_string(leader);
-        return;
-      }
+      check_leader(response->mutable_common());
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
@@ -74,8 +78,7 @@ namespace spkdfs {
         path = "/" + path;
       }
 
-      Inode inode;
-      inode.set_fullpath(path);
+      Inode inode = Inode::get_default_dir(path);
       // check in rocksdb
       // if(inode.get_fullpath() == "/") throw MessageException("cannot mkdir /")
       nn_raft_ptr->prepare_mkdir(inode);
@@ -90,7 +93,6 @@ namespace spkdfs {
       task.data = &buf;  // task.data cannot be NULL
       task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
-      response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
       fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
@@ -104,15 +106,8 @@ namespace spkdfs {
     brpc::ClosureGuard done_guard(done);
     try {
       LOG(INFO) << "rpc: rm";
-      Node leader = nn_raft_ptr->leader();
-      if (!leader.valid()) {
-        throw runtime_error("leader not ready");
-      }
-      if (leader.ip != my_ip) {
-        response->mutable_common()->set_success(false);
-        *(response->mutable_common()->mutable_redirect()) = to_string(leader);
-        return;
-      }
+      check_leader(response->mutable_common());
+
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
@@ -132,7 +127,6 @@ namespace spkdfs {
       task.data = &buf;  // task.data cannot be NULL
       task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
-      response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
       fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
@@ -146,16 +140,7 @@ namespace spkdfs {
     brpc::ClosureGuard done_guard(done);
     try {
       LOG(INFO) << "rpc: put";
-
-      Node leader = nn_raft_ptr->leader();
-      if (!leader.valid()) {
-        throw runtime_error("leader not ready");
-      }
-      if (leader.ip != my_ip) {
-        response->mutable_common()->set_success(false);
-        *(response->mutable_common()->mutable_redirect()) = to_string(leader);
-        return;
-      }
+      check_leader(response->mutable_common());
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
@@ -171,7 +156,6 @@ namespace spkdfs {
       task.data = &buf;
       task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
-      response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
       fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
@@ -186,6 +170,8 @@ namespace spkdfs {
 
     LOG(INFO) << "rpc: put_ok";
     try {
+      check_leader(response->mutable_common());
+
       if (request->path().empty()) {
         throw runtime_error("parameter path required");
       }
@@ -202,7 +188,6 @@ namespace spkdfs {
       task.data = &buf;
       task.done = new CommonClosure(response->mutable_common(), done_guard.release());
       nn_raft_ptr->apply(task);
-      response->mutable_common()->set_success(true);
     } catch (const MessageException& e) {
       fail_response(response->mutable_common(), e);
     } catch (const std::exception& e) {
@@ -229,17 +214,37 @@ namespace spkdfs {
       fail_response(response->mutable_common(), e);
     }
   }
-  // void NamenodeServiceImpl::get_datanodes(::google::protobuf::RpcController* controller,
-  //                                         const Request* request, NNGetDatanodesResponse*
-  //                                         response,
-  //                                         ::google::protobuf::Closure* done) {
-  //   brpc::ClosureGuard done_guard(done);
-  //   try {
-  //     response->
-  //   } catch (const MessageException& e) {
-  //   fail_response(response->mutable_common(), e);
-  //   } catch (const std::exception& e) {
-  //     fail_response(response->mutable_common(), e);
-  //   }
-  // }
+  void NamenodeServiceImpl::update_lock(::google::protobuf::RpcController* controller,
+                                        const NNLockRequest* request, CommonResponse* response,
+                                        ::google::protobuf::Closure* done) {
+    brpc::ClosureGuard done_guard(done);
+    LOG(INFO) << "rpc update_lock";
+    try {
+      check_leader(response->mutable_common());
+
+      if (request->paths().empty()) {
+        throw runtime_error("parameter paths required");
+      }
+      for (auto& s : request->paths()) {
+        Inode inode;
+        inode.set_fullpath(s);
+
+        nn_raft_ptr->ls(inode);
+        inode.update_ddl_lock();
+
+        Task task;
+        butil::IOBuf buf;
+        buf.push_back(OpType::OP_PUT);
+        buf.append(inode.value());
+        task.data = &buf;
+        task.done = new CommonClosure(response->mutable_common(), done_guard.release());
+        nn_raft_ptr->apply(task);
+      }
+    } catch (const MessageException& e) {
+      fail_response(response->mutable_common(), e);
+    } catch (const std::exception& e) {
+      fail_response(response->mutable_common(), e);
+    }
+    // request;
+  }
 }  // namespace spkdfs

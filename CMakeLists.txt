@@ -69,7 +69,7 @@ target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR
 
 target_link_libraries(node unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp glog::glog)
-target_link_libraries(tests PRIVATE GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
+target_link_libraries(tests GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
 
 enable_testing()

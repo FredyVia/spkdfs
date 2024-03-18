@@ -1,11 +1,23 @@
 #!/bin/bash
+# 检查环境变量是否为空
+if [ -z "$BREAKPAD_HOME" ]; then
+  echo -e "Error: BREAKPAD_HOME is empty."
+  exit 1
+fi
+BINARY_FILE=${BINARY_FILE}
+if [ -z "$BINARY_FILE" ]; then
+  BINARY_FILE="build/x64-linux-dynamic/node"
+fi
 
+if [ ! -f "$BINARY_FILE" ]; then
+  echo -e "BINARY_FILE not exists"
+  exit 1
+fi
 # Breakpad 工具的路径
-DUMP_SYMS_PATH="/home/fredyvia/breakpad/breakpad/src/tools/linux/dump_syms/dump_syms"
-MINIDUMP_STACKWALK_PATH="/home/fredyvia/breakpad/breakpad/src/processor/minidump_stackwalk"
-DUMP_CORE_PATH="/home/fredyvia/breakpad/breakpad/src/tools/linux/md2core/minidump-2-core"
+DUMP_SYMS_PATH="${BREAKPAD_HOME}/src/tools/linux/dump_syms/dump_syms"
+MINIDUMP_STACKWALK_PATH="${BREAKPAD_HOME}/src/processor/minidump_stackwalk"
+DUMP_CORE_PATH="${BREAKPAD_HOME}/src/tools/linux/md2core/minidump-2-core"
 # 二进制文件路径
-BINARY_FILE="build/node"
 
 # 符号文件的输出目录
 SYMBOLS_DIR="tmp/"
@@ -38,7 +50,7 @@ for DUMP_DIR in tmp/spkdfs_*; do
       if [ ! -f "$DUMP_FILE" ]; then
         continue
       fi
-      $DUMP_CORE_PATH $DUMP_FILE > /tmp/$NODE_ID.dmp
+      $DUMP_CORE_PATH $DUMP_FILE >tmp/$NODE_ID.dmp
       REPORT_FILE="$REPORTS_DIR/report_node_${NODE_ID}.txt"
       $MINIDUMP_STACKWALK_PATH "$DUMP_FILE" "$SYMBOLS_DIR" >"$REPORT_FILE"
 

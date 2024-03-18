@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "common/node.h"
+#define NN_INTERVAL 10
 namespace spkdfs {
   DECLARE_string(data_dir);
   DECLARE_string(coredumps_dir);

@@ -12,6 +12,7 @@
 #include <string>
 
 #include "common/node.h"
+#include "common/utils.h"
 #include "node/config.h"
 namespace spkdfs {
   using namespace std;
@@ -206,13 +207,7 @@ namespace spkdfs {
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
     string file_path = reader->get_path() + "namenodes.json";
     string str;
-    ifstream file(file_path, ios::binary);
-    if (!file) {
-      LOG(ERROR) << "Failed to open file for reading." << file_path;
-      return -1;
-    }
-    file >> str;
-    file.close();
+    str = read_file(file_path);
     if (!str.empty()) {
       auto _json = json::parse(str);
       namenode_list = _json.get<vector<Node>>();

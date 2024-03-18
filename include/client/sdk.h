@@ -1,6 +1,7 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -18,6 +19,7 @@ namespace spkdfs {
     NamenodeService_Stub* nn_master_stub_ptr;
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
     PathLocks pathlocks;
+    // map<std::string, Inode> inodeCache;
     DatanodeService_Stub* get_dn_stub(const std::string& node);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);

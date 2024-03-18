@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <cryptopp/filters.h>
 #include <cryptopp/hex.h>
+
 #define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
 #include <cryptopp/md5.h>
 #include <cryptopp/sha.h>
@@ -13,6 +14,7 @@
 #include <netinet/in.h>
 
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <set>
 
@@ -120,5 +122,22 @@ namespace spkdfs {
       res.pop_back();
     }
     return res;
+  }
+
+  std::string read_file(const std::string &path) {
+    int filesize = fs::file_size(path);
+    string block;
+    block.resize(filesize);
+    ifstream ifile(path, std::ios::binary);
+    if (!ifile) {
+      cout << "Failed to open file for reading." << path << endl;
+      throw std::runtime_error("openfile error:" + path);
+    }
+    if (!ifile.read(&block[0], filesize)) {
+      cout << "Failed to read file content." << endl;
+      throw std::runtime_error("readfile error:" + path);
+    }
+    ifile.close();
+    return block;
   }
 }  // namespace spkdfs

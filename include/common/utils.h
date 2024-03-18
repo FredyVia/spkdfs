@@ -14,5 +14,6 @@ namespace spkdfs {
   std::string cal_sha256sum(const std::string&);
   std::string cal_md5sum(const std::string&);
   std::string simplify_path(const std::string&);
+  std::string read_file(const std::string& path);
 }  // namespace spkdfs
 #endif

@@ -1,4 +1,5 @@
 1. to do:
+  * sdk inode cache based on time
   * dynamic node management
   * dynamic block repair
   * guess storage by RS<RE<>>

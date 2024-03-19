@@ -58,7 +58,7 @@ namespace spkdfs {
 
   std::vector<std::string> RSStorageType::encode(const std::string& data) const {
     struct ec_args args = {.k = k, .m = m};
-    int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
+    int instance = liberasurecode_instance_create(EC_BACKEND_ISA_L_RS_VAND, &args);
     char** encoded_data = NULL;
     char** encoded_parity = NULL;
     uint64_t encoded_fragment_len = 0;
@@ -86,7 +86,7 @@ namespace spkdfs {
     assert(vec.size() >= k);
     assert(vec.size() <= k + m);
     struct ec_args args = {.k = k, .m = m};
-    int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
+    int instance = liberasurecode_instance_create(EC_BACKEND_ISA_L_RS_VAND, &args);
     int len = 0;
     char* datas[k];
     for (auto& str : vec) {
@@ -139,7 +139,7 @@ namespace spkdfs {
 
   void Inode::lock() {
     uint64_t now = get_time();
-    if (ddl_lock < now) {
+    if (ddl_lock >= now) {
       throw MessageException(EXPECTED_LOCK_CONFLICT,
                              fullpath + " file is being edit! ddl_lock: " + std::to_string(ddl_lock)
                                  + ", now: " + std::to_string(now));

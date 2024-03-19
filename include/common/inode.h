@@ -90,7 +90,7 @@ namespace spkdfs {
     std::shared_ptr<StorageType> storage_type_ptr;
     std::vector<std::string> sub;
     bool valid;
-    uint64_t ddl_lock;
+    uint64_t ddl_lock = 0;
     // int modification_time;
     void lock();
     void unlock();

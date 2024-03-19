@@ -90,7 +90,7 @@ namespace spkdfs {
     std::shared_ptr<StorageType> storage_type_ptr;
     std::vector<std::string> sub;
     bool valid;
-    uint64_t ddl_lock;
+    uint64_t ddl_lock = 0;
     // int modification_time;
     void lock();
     void unlock();
@@ -102,6 +102,7 @@ namespace spkdfs {
       return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
     }
   };
+  bool operator==(const Inode& lhs, const Inode& rhs) noexcept;
 
   void to_json(nlohmann::json& j, const Inode& inode);
 

@@ -1,6 +1,7 @@
 #include "client/sdk.h"
 
 #include <fcntl.h>
+#include <glog/logging.h>
 #include <unistd.h>
 
 #include <filesystem>
@@ -31,11 +32,7 @@ namespace spkdfs {
     DNGetNamenodesResponse dn_getnamenodes_resp;
     get_dn_stub(datanode)->get_namenodes(&cntl, &request, &dn_getnamenodes_resp, NULL);
     check_response(cntl, dn_getnamenodes_resp.common());
-    cout << "namenodes: ";
-    for (auto node : dn_getnamenodes_resp.nodes()) {
-      cout << node << ", ";
-    }
-    cout << endl;
+    for (auto &node : dn_getnamenodes_resp.nodes()) VLOG(2) << node;
     string namenode = dn_getnamenodes_resp.nodes(0);
     Channel nn_channel;
     if (nn_channel.Init(string(namenode).c_str(), NULL) != 0) {
@@ -48,14 +45,13 @@ namespace spkdfs {
     nn_stub.get_master(&cntl, &request, &nn_getmaster_resp, NULL);
 
     check_response(cntl, nn_getmaster_resp.common());
-    cout << "namenode master: " << nn_getmaster_resp.node() << endl;
+    VLOG(2) << "namenode master: " << nn_getmaster_resp.node();
     string namenode_master = nn_getmaster_resp.node();
 
     if (nn_master_channel.Init(string(namenode_master).c_str(), NULL) != 0) {
       throw runtime_error("namenode_master channel init failed");
     }
     nn_master_stub_ptr = new NamenodeService_Stub(&nn_master_channel);
-    cout << endl;
 
     timer = make_shared<IntervalTimer>(
         max(LOCK_REFRESH_INTERVAL >> 2, 5),
@@ -66,18 +62,17 @@ namespace spkdfs {
           int retryCount = 0;  // 重试计数器
           while (true) {
             try {
-              std::shared_lock<std::shared_mutex> lock(mutex_remoteLocks);
               vector<string> paths;
-              for (auto &p : remoteLocks) {
-                paths.push_back(p.first);
+              {
+                std::shared_lock<std::shared_mutex> lock(mutex_remoteLocks);
+                paths = vector<string>(remoteLocks.begin(), remoteLocks.end());
               }
-              lock.unlock();
-              lock_remote(paths);
+              _lock_remote(paths);
 
               break;
             } catch (const exception &e) {
               if (retryCount >= 3) {  // 允许最多重试3次
-                cout << "retry error" << e.what() << endl;
+                LOG(ERROR) << "retry error" << e.what();
                 throw IntervalTimer::TimeoutException("timeout", e.what());
               }
               retryCount++;  // 增加重试计数器
@@ -116,6 +111,13 @@ namespace spkdfs {
   }
 
   Inode SDK::get_inode(const std::string &dst) {
+    if (local_inode_cache.find(dst) == local_inode_cache.end()) {
+      throw runtime_error("cannot find inode in local_inode_cache");
+    }
+    return local_inode_cache[dst];
+  }
+
+  Inode SDK::get_remote_inode(const std::string &dst) {
     // if(inodeCache.find(dst) != inodeCache.end()){
     //   return inodeCache[dst];
     // }
@@ -128,12 +130,11 @@ namespace spkdfs {
 
     auto _json = nlohmann::json::parse(response.data());
     Inode inode = _json.get<Inode>();
-    // cout << inode.value() << endl;
-    // inodeCache[dst] = inode;
+    VLOG(2) << inode.value();
     return inode;
   }
 
-  Inode SDK::ls(const std::string &path) { return get_inode(path); }
+  Inode SDK::ls(const std::string &path) { return get_remote_inode(path); }
 
   void SDK::mkdir(const string &dst) {
     Controller cntl;
@@ -142,8 +143,6 @@ namespace spkdfs {
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->mkdir(&cntl, &request, &response, NULL);
     check_response(cntl, response.common());
-
-    cout << "success" << endl;
   }
 
   inline std::string SDK::guess_storage_type() const { return "RS<7,5,16>"; }
@@ -180,24 +179,77 @@ namespace spkdfs {
     return res;
   }
 
+  void SDK::update_inode(const std::string &path) {
+    Inode local = local_inode_cache[path];
+    Inode remote = get_remote_inode(path);
+    for (int i = 0; i < min(local.sub.size(), remote.sub.size()); i++) {
+      if (local.sub[i] != remote.sub[i]) {
+        fs::remove_all(get_tmp_index_path(path, i));
+      }
+    }
+    for (int i = remote.sub.size(); i < local.sub.size(); i++) {
+      fs::remove_all(get_tmp_index_path(path, i));
+    }
+    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
+    local_inode_cache[path] = remote;
+  }
+
+  void SDK::read_lock(const std::string &dst) { pathlocks.read_lock(get_tmp_path(dst)); }
+
+  void SDK::write_lock(const std::string &dst) {
+    pathlocks.write_lock(get_tmp_path(dst));
+    lock_remote(dst);
+  }
+
+  void SDK::_unlock_remote(const std::string &dst) {
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.erase(dst);
+  }
+
+  void SDK::unlock(const std::string &dst) {
+    // read also unlock remote(no effection)
+    _unlock_remote(dst);
+    pathlocks.unlock(get_tmp_path(dst));
+  }
+
   void SDK::open(const std::string &path, int flags) {
-    cout << "open flags: " << flags << endl;
-    createDirectoryIfNotExist(get_tmp_path(path));
-    if ((flags & O_ACCMODE) != O_RDONLY) {
-      createDirectoryIfNotExist(get_tmp_write_path(path));
-      lock(path);
-    }
+    VLOG(2) << "open flags: " << flags;
+
     if (flags & O_CREAT) {
-      cout << "open with flag: O_CREAT" << endl;
-      create(path);
+      // ref mknod & create in libfuse
+      _create(path);
     }
+
+    string local_path = get_tmp_path(path);
+    mkdir_f(local_path);
+    if ((flags & O_ACCMODE) != O_RDONLY) {
+      string write_path = get_tmp_write_path(path);
+      write_lock(path);
+      mkdir_f(write_path);
+      clear_dir(write_path);
+    } else {
+      read_lock(path);
+    }
+    update_inode(path);
+
     if (flags & O_TRUNC) {
-      cout << "open with flag: O_TRUNC" << endl;
-      truncate(path, 0);
+      LOG(WARNING) << "open with flag: O_TRUNC";
+      _truncate(path, 0);
     }
   }
 
-  void SDK::lock_remote(const std::vector<std::string> &paths) {
+  void SDK::lock_remote(const std::string &path) {
+    _lock_remote(path);
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.insert(path);
+  }
+
+  void SDK::_lock_remote(const std::string &path) {
+    vector<string> paths = {path};
+    _lock_remote(paths);
+  }
+
+  void SDK::_lock_remote(const std::vector<std::string> &paths) {
     brpc::Controller cntl;
     NNLockRequest request;
     CommonResponse response;
@@ -210,31 +262,21 @@ namespace spkdfs {
 
   void SDK::close(const std::string &dst) {
     fsync(dst);
+    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
+    local_inode_cache.erase(dst);
     unlock(dst);
-  }
-
-  void SDK::lock(const std::string &dst) {
-    vector<string> res = {dst};
-    lock_remote(res);
-    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
-    remoteLocks.insert(make_pair(dst, get_inode(dst)));
-  }
-
-  void SDK::unlock(const std::string &dst) {
-    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
-    remoteLocks.erase(dst);
   }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
                 const std::string &storage_type) {
     shared_ptr<StorageType> storage_type_ptr = StorageType::from_string(storage_type);
-    cout << "opening file " << srcFilePath << endl;
+    VLOG(2) << "opening file " << srcFilePath;
     ifstream ifile(srcFilePath, ios::binary);
     if (!ifile.is_open()) {
       throw runtime_error("Failed to open file" + srcFilePath);
     }
     auto filesize = fs::file_size(srcFilePath);
-    cout << "filesize: " << filesize << endl;
+    VLOG(2) << "filesize: " << filesize;
     brpc::Controller cntl;
     NNPutRequest nn_put_req;
     NNPutResponse nn_put_resp;
@@ -243,35 +285,35 @@ namespace spkdfs {
     nn_master_stub_ptr->put(&cntl, &nn_put_req, &nn_put_resp, NULL);
     check_response(cntl, nn_put_resp.common());
 
-    lock(dstFilePath);
-    NNPutOKRequest nn_putok_req;
-    *(nn_putok_req.mutable_path()) = dstFilePath;
-    nn_putok_req.set_filesize(filesize);
-    uint64_t block_size = storage_type_ptr->getBlockSize();
-    cout << "using block size: " << block_size << endl;
+    _lock_remote(dstFilePath);
+    NNPutOKRequest nnPutokReq;
+    *(nnPutokReq.mutable_path()) = dstFilePath;
+    nnPutokReq.set_filesize(filesize);
+    uint64_t blockSize = storage_type_ptr->getBlockSize();
+    VLOG(2) << "using block size: " << blockSize;
     string block;
-    block.resize(block_size);
+    block.resize(blockSize);
     int blockIndex = 0;
 
     int node_index = 0;
     int i = 0;  // used to make std::set be ordered
-    while (ifile.read(&block[0], block_size) || ifile.gcount() > 0) {
+    while (ifile.read(&block[0], blockSize) || ifile.gcount() > 0) {
       size_t bytesRead = ifile.gcount();
-      // if (bytesRead < block_size) {
-      //   block.resize(block_size, '0');  // 使用0填充到新大小
+      // if (bytesRead < blockSize) {
+      //   block.resize(blockSize, '0');  // 使用0填充到新大小
       // }
       string res = encode_one(storage_type_ptr, block);
-      nn_putok_req.add_sub(res);
+      nnPutokReq.add_sub(res);
       blockIndex++;
     }
     ifile.close();
-    unlock(dstFilePath);
+    _unlock_remote(dstFilePath);
     CommonResponse response;
     cntl.Reset();
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
 
-    cout << "put ok" << endl;
+    VLOG(2) << "put ok";
   }
 
   std::string SDK::get_from_datanode(const std::string &datanode, const std::string &blkid) {
@@ -282,7 +324,7 @@ namespace spkdfs {
     cntl.set_timeout_ms(5000);
     get_dn_stub(datanode)->get(&cntl, &dnget_req, &dnget_resp, NULL);
     check_response(cntl, dnget_resp.common());
-    cout << datanode << " | " << blkid << " success" << endl;
+    VLOG(2) << datanode << " | " << blkid << " success";
     string data = dnget_resp.data();
     if (cal_sha256sum(data) != blkid) {
       throw runtime_error("sha256sum check fail");
@@ -292,7 +334,7 @@ namespace spkdfs {
 
   std::string SDK::put_to_datanode(const string &datanode, const std::string &block) {
     string sha256sum = cal_sha256sum(block);
-    cout << "sha256sum:" << sha256sum << endl;
+    VLOG(2) << "sha256sum:" << sha256sum;
     // 假设每个分块的大小是block.size() / k
     Controller cntl;
     cntl.set_timeout_ms(5000);
@@ -316,24 +358,24 @@ namespace spkdfs {
     int fail_count = 0;  // avoid i-- becomes endless loop
     // 上传每个编码后的分块
     for (int i = 0; i < vec.size(); i++) {
-      cout << "node[" << node_index << "]"
-           << ":" << nodes[node_index] << endl;
+      VLOG(2) << "node[" << node_index << "]"
+              << ":" << nodes[node_index];
       try {
         sha256sum = put_to_datanode(nodes[node_index], vec[i]);
         nodes_hashs.push_back(make_pair(nodes[node_index], sha256sum));
         succ++;
-        cout << nodes[node_index] << " success" << endl;
+        VLOG(2) << nodes[node_index] << " success";
       } catch (const exception &e) {
-        cout << e.what() << endl;
-        cout << nodes[node_index] << " failed" << endl;
+        LOG(ERROR) << e.what();
+        LOG(ERROR) << nodes[node_index] << " failed";
         i--;
         fail_count++;
       }
       node_index = (node_index + 1) % nodes.size();
       if (node_index == 0 && storage_type_ptr->check(succ) == false) {
-        cout << "may not be secure" << endl;
+        LOG(WARNING) << "may not be secure";
         if (fail_count == nodes.size()) {
-          cout << "all failed" << endl;
+          LOG(ERROR) << "all failed";
           break;
         }
         fail_count = 0;
@@ -359,17 +401,17 @@ namespace spkdfs {
           return storage_type_ptr->decode(datas);
         }
       } catch (const exception &e) {
-        cout << e.what() << endl;
-        cout << node << " | " << blkid << " failed" << endl;
+        LOG(ERROR) << e.what();
+        LOG(ERROR) << node << " | " << blkid << " failed";
       }
     }
     return "";
   }
 
   void SDK::get(const std::string &src, const std::string &dst) {
-    Inode inode = get_inode(src);
+    Inode inode = get_remote_inode(src);
 
-    // cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
+    VLOG(2) << "using storage type: " << inode.storage_type_ptr->to_string();
     ofstream dstFile(dst, std::ios::binary);
     if (!dstFile.is_open()) {
       throw runtime_error("Failed to open file" + dst);
@@ -388,11 +430,21 @@ namespace spkdfs {
     *(request.mutable_path()) = dst;
     nn_master_stub_ptr->rm(&cntl, &request, &response, NULL);
     check_response(cntl, response.common());
-
-    cout << "success" << endl;
   }
 
-  void SDK::truncate(const std::string &dst, size_t size) {
+  // void SDK::local_truncate(const Inode& inode, size_t size) {
+  //   inode.getBlockSize();
+  //   inode.filesize;
+  //   for (const auto &entry : fs::directory_iterator(write_dst)) {
+  //     const auto index_str = entry.path().filename().string();
+  //     if (entry.is_directory()) {
+  //     }
+  //     res.push_back(stoi(index_str));
+  //   }
+  //   inode.getBlockSize();
+  // }
+  void SDK::truncate(const std::string &dst, size_t size) { open(dst, O_WRONLY | O_TRUNC); }
+  void SDK::_truncate(const std::string &dst, size_t size) {
     Inode inode = get_inode(dst);
     if (inode.filesize == size) {
       return;
@@ -401,16 +453,17 @@ namespace spkdfs {
       write_data(dst, inode.filesize, string(size - inode.filesize, '\0'));
       return;
     }
-    NNPutOKRequest nn_putok_req;
-    *(nn_putok_req.mutable_path()) = dst;
-    nn_putok_req.set_filesize(size);
+    NNPutOKRequest nnPutokReq;
+    *(nnPutokReq.mutable_path()) = dst;
+    nnPutokReq.set_filesize(size);
     for (int i = 0; i < align_up(size, inode.getBlockSize()); i++) {
-      nn_putok_req.add_sub(inode.sub[i]);
+      nnPutokReq.add_sub(inode.sub[i]);
     }
     Controller cntl;
     CommonResponse response;
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
+    unlock(dst);
   }
 
   inline pair<int, int> SDK::get_indexs(const Inode &inode, uint64_t offset, size_t size) const {
@@ -420,8 +473,8 @@ namespace spkdfs {
 
   void SDK::ln_path_index(const std::string &path, uint32_t index) const {
     string hard_ln_path = get_tmp_write_path(path) + "/" + std::to_string(index);
-    cout << "creating hardlink: " << hard_ln_path << " >>>>> " << get_tmp_index_path(path, index)
-         << endl;
+    VLOG(2) << "creating hardlink: " << hard_ln_path << " >>>>> "
+            << get_tmp_index_path(path, index);
     fs::remove(hard_ln_path);
     std::filesystem::create_hard_link(get_tmp_index_path(path, index), hard_ln_path);
   }
@@ -441,7 +494,7 @@ namespace spkdfs {
 
   std::string SDK::read_data(const Inode &inode, std::pair<int, int> indexs) {
     string tmp_path;
-    cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
+    VLOG(2) << "using storage type: " << inode.storage_type_ptr->to_string();
     auto iter = inode.sub.begin() + indexs.first;
     std::ostringstream oss;
     string block;
@@ -454,14 +507,13 @@ namespace spkdfs {
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         block = read_file(tmp_path);
       } else {
-        pathlocks.lock(tmp_path);
+        pathlocks.write_lock(tmp_path);
         if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
           block = read_file(tmp_path);
-
         } else {
           ofstream ofile(tmp_path, std::ios::binary);
           if (!ofile) {
-            cout << "Failed to open file for reading." << tmp_path << endl;
+            LOG(ERROR) << "Failed to open file for reading." << tmp_path;
             throw std::runtime_error("openfile error:" + tmp_path);
           }
           block = decode_one(inode.storage_type_ptr, blks);
@@ -480,8 +532,8 @@ namespace spkdfs {
     string res;
     Inode inode = get_inode(path);
     if (inode.filesize < offset) {
-      cout << "out of range: filesize: " << inode.filesize << ", offset: " << offset
-           << ", size: " << size << endl;
+      VLOG(2) << "out of range: filesize: " << inode.filesize << ", offset: " << offset
+              << ", size: " << size;
       return "";
     }
     if (inode.filesize < offset + size) {
@@ -494,9 +546,6 @@ namespace spkdfs {
   }
 
   void SDK::write_data(const string &path, uint64_t offset, const std::string &s) {
-    createDirectoryIfNotExist(get_tmp_path(path));
-    createDirectoryIfNotExist(get_tmp_write_path(path));
-
     Inode inode = get_inode(path);
 
     size_t size = s.size();
@@ -523,10 +572,10 @@ namespace spkdfs {
       // using ios::binary only will clear the file
       ofstream dstFile(dst, ios::binary | ios::app);
       if (!dstFile) {
-        std::cout << "failed to write data to " << dst << std::endl;
+        LOG(ERROR) << "failed to write data to " << dst << std::endl;
         throw runtime_error("failed to write data to " + dst);
       }
-      cout << "seek begin: " << left << ", seek end: " << right << endl;
+      VLOG(2) << "seek begin: " << left << ", seek end: " << right;
       dstFile.seekp(left);
       dstFile << string(iter, iter + localSize);
       dstFile.close();
@@ -534,9 +583,9 @@ namespace spkdfs {
       ln_path_index(path, index);
     }
   }
-
-  void SDK::create(const string &path) {
-    open("", false);
+  void SDK::create(const string &path) { open(path, O_WRONLY | O_CREAT); }
+  // stateless
+  void SDK::_create(const string &path) {
     string dst_path = get_tmp_index_path("", 0);
     std::ofstream ofile(dst_path);
     ofile.close();
@@ -552,13 +601,9 @@ namespace spkdfs {
       throw runtime_error(write_dst + " is not directory");
     }
     vector<int> res;
-    for (const auto &entry : fs::directory_iterator(write_dst)) {
-      const auto index_str = entry.path().filename().string();
-      if (entry.is_directory()) {
-        throw runtime_error(index_str + " is directory");
-      }
-      res.push_back(stoi(index_str));
-    }
+    for (auto &file : list_dir(write_dst)) {
+      res.push_back(stoi(file));
+    };
     if (res.empty()) return;
     sort(res.begin(), res.end());
     Inode inode = get_inode(dst);
@@ -569,7 +614,7 @@ namespace spkdfs {
     string index_block;
     for (auto &i : res) {
       string index_file_path = write_dst + "/" + std::to_string(i);
-      pathlocks.lock(index_file_path);
+      pathlocks.read_lock(index_file_path);
       index_block = read_file(index_file_path);
       last_index_filesize = index_block.size();
       inode.sub[i] = encode_one(inode.storage_type_ptr, index_block);
@@ -579,33 +624,13 @@ namespace spkdfs {
     int filesize = std::max(inode.filesize,
                             (uint64_t)res.back() * inode.getBlockSize() + last_index_filesize);
     Controller cntl;
-    NNPutOKRequest nn_putok_req;
+    NNPutOKRequest nnPutokReq;
     CommonResponse response;
-    *(nn_putok_req.mutable_path()) = dst;
-    nn_putok_req.set_filesize(filesize);
+    *(nnPutokReq.mutable_path()) = dst;
+    nnPutokReq.set_filesize(filesize);
     for (auto &s : inode.sub) {
-      nn_putok_req.add_sub(s);
+      nnPutokReq.add_sub(s);
     }
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
   }
-  // std::vector<std::string> SDK::write_data(const Inode &inode, int start_index,
-  //                                          const std::string &s) {
-  //   vector<string> res;
-  //   for (int i = 0; i < s.size(); i += inode.storage_type_ptr->getBlockSize()) {
-  //     res.push_back(encode_one(inode.storage_type_ptr, string()));
-  //   }
-  //   return res;
-  // }
-  // std::string SDK::get_one_data(const Inode &inode, int index) {
-  //   string res;
-  //   cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
-  //   int succ = 0;
-  //   auto iter = inode.sub.begin();
-  //   for (int i = 0; i < index * inode.storage_type_ptr->getBlocks(); i++) {
-  //     iter++;
-  //   }
-  //   //  for (int index = offset / inode.getBlockSize(); index < blkids.size();
-  //   //              index += inode.storage_type_ptr->getBlocks()) {
-  //   return decode_one(inode.storage_type_ptr, iter, inode.sub.end());
-  // }
 }  // namespace spkdfs

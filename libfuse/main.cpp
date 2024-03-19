@@ -431,13 +431,13 @@ static const struct fuse_operations spkdfs_oper = {
     .unlink = spkdfs_rm,    // 345
     .rmdir = spkdfs_rm,     // 348
     // .rename     = lofs_rename,
-    .truncate = spkdfs_truncate,  // 392
-    .open = spkdfs_open,          // 441
-    .read = spkdfs_read,          // 452
-    .write = spkdfs_write,        // 464
-    .release = spkdfs_close,      // 515
-    .fsync = spkdfs_fsync,        // 522
-    .readdir = spkdfs_readdir,    // 561
+    // .truncate = spkdfs_truncate,  // 392
+    .open = spkdfs_open,        // 441
+    .read = spkdfs_read,        // 452
+    .write = spkdfs_write,      // 464
+    .release = spkdfs_close,    // 515
+    .fsync = spkdfs_fsync,      // 522
+    .readdir = spkdfs_readdir,  // 561
     // .init = spkdfs_init,        // 583
     .create = spkdfs_create,    // 614
     .utimens = spkdfs_utimens,  // 661
@@ -448,18 +448,25 @@ static void show_help(const char *progname) {
   printf(
       "File-system specific options:\n"
       "    --ips=<s>          ips of the cluster\n"
-      "                        (default: \"127.0.0.1:11801\")\n"
+      "                        (default: \"192.168.88.112:11801\")\n"
       "\n");
 }
 
 int main(int argc, char *argv[]) {
   int ret;
+  // google::InitGoogleLogging(argv[0]);
+  // google::AllowCommandLineReparsing();
+  // google::ParseCommandLineFlags(&argc, &argv, true);
+  // for (int i = 0; i < argc; i++) {
+  // //   cout << "argv[" << i << "]"
+  //        << ": " << argv[i] << endl;
+  // }
   struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
   /* Set defaults -- we have to use strdup so that
      fuse_opt_parse can free the defaults if other
      values are specified */
-  options.ips = strdup("127.0.0.1:10801,127.0.0.1:11801\n");
+  options.ips = strdup("192.168.88.111:8001,192.168.88.112:8001\n");
 
   /* Parse options */
   if (fuse_opt_parse(&args, &options, option_spec, NULL) == -1) return 1;

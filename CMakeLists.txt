@@ -36,6 +36,8 @@ find_package(RocksDB CONFIG REQUIRED)
 
 find_package(cryptopp CONFIG REQUIRED)
 
+find_package(benchmark CONFIG REQUIRED)
+
 pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
 
 pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET GLOBAL fuse3)
@@ -54,22 +56,26 @@ file(GLOB src_node CONFIGURE_DEPENDS src/node/*.cpp)
 file(GLOB src_client CONFIGURE_DEPENDS src/client/*.cpp)
 file(GLOB src_tests CONFIGURE_DEPENDS test/src/*.cpp)
 file(GLOB src_libfuse CONFIGURE_DEPENDS libfuse/*.cpp)
+file(GLOB src_benchmark CONFIGURE_DEPENDS benchmark/*.cpp)
 
 add_executable(node ${src_node} ${src_common} ${PROTO_SRCS})
 add_executable(client ${src_client} ${src_common} ${PROTO_SRCS})
 list(FILTER src_node EXCLUDE REGEX "src/node/main\\.cpp$")
 list(FILTER src_client EXCLUDE REGEX "src/client/main\\.cpp$")
 add_executable(tests  ${src_node} ${src_client} ${src_tests} ${src_common} ${PROTO_SRCS})
-add_executable(fuse-spkdfs ${src_libfuse} ${src_common} ${src_client} ${PROTO_SRCS})
+add_executable(fuse3 ${src_libfuse} ${src_common} ${src_client} ${PROTO_SRCS})
+add_executable(benchmark ${src_benchmark} ${src_common} ${src_client} ${PROTO_SRCS})
 
 target_include_directories(node PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(fuse-spkdfs PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(fuse3 PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
+target_include_directories(benchmark PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
 
 target_link_libraries(node unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp glog::glog)
 target_link_libraries(tests GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(fuse-spkdfs unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
+target_link_libraries(fuse3 unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
+target_link_libraries(benchmark unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp benchmark::benchmark)
 
 enable_testing()

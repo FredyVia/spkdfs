@@ -58,7 +58,7 @@ namespace spkdfs {
 
   std::vector<std::string> RSStorageType::encode(const std::string& data) const {
     struct ec_args args = {.k = k, .m = m};
-    int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
+    int instance = liberasurecode_instance_create(EC_BACKEND_ISA_L_RS_VAND, &args);
     char** encoded_data = NULL;
     char** encoded_parity = NULL;
     uint64_t encoded_fragment_len = 0;
@@ -86,11 +86,11 @@ namespace spkdfs {
     assert(vec.size() >= k);
     assert(vec.size() <= k + m);
     struct ec_args args = {.k = k, .m = m};
-    int instance = liberasurecode_instance_create(EC_BACKEND_JERASURE_RS_CAUCHY, &args);
+    int instance = liberasurecode_instance_create(EC_BACKEND_ISA_L_RS_VAND, &args);
     int len = 0;
     char* datas[k];
     for (auto& str : vec) {
-      cout << "sha256sum: " << cal_sha256sum(str) << endl;
+      VLOG(2) << "sha256sum: " << cal_sha256sum(str) << endl;
       datas[len++] = str.data();
       if (len == k) {
         break;
@@ -110,7 +110,7 @@ namespace spkdfs {
   bool RSStorageType::check(int success) const { return success > k; }
 
   std::vector<std::string> REStorageType::encode(const std::string& data) const {
-    cout << "re encode" << endl;
+    VLOG(2) << "re encode" << endl;
     vector<std::string> vec;
     for (int i = 0; i < replications; i++) {
       vec.push_back(data);
@@ -139,7 +139,7 @@ namespace spkdfs {
 
   void Inode::lock() {
     uint64_t now = get_time();
-    if (ddl_lock < now) {
+    if (ddl_lock >= now) {
       throw MessageException(EXPECTED_LOCK_CONFLICT,
                              fullpath + " file is being edit! ddl_lock: " + std::to_string(ddl_lock)
                                  + ", now: " + std::to_string(now));
@@ -200,7 +200,7 @@ namespace spkdfs {
       string node, blkid;
       getline(ss, node, '|');   // 提取第一个部分
       getline(ss, blkid, '|');  // 提取第二个部分
-      cout << node << "|" << blkid << endl;
+      VLOG(2) << node << "|" << blkid << endl;
       res.push_back(make_pair(node, blkid));
     }
     return res;
@@ -236,5 +236,9 @@ namespace spkdfs {
     inode.valid = j.at("valid").get<bool>();
     inode.ddl_lock = j.at("ddl_lock").get<uint64_t>();
     // inode.modification_time = j.at("modification_time").get<int>();
+  }
+
+  bool operator==(const Inode& linode, const Inode& rinode) noexcept {
+    return linode.sub == rinode.sub && linode.filesize == rinode.filesize;
   }
 }  // namespace spkdfs

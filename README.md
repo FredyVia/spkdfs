@@ -1,4 +1,5 @@
-1. to do:
+# To do:
+
   * update_lock add failinfo and update_lock in one apply
   * inode lock time sync
   * seprate CMakeLists.txt
@@ -11,7 +12,9 @@
   * dynamic block repair
   * guess storage by RS<RE<>>
   * RS not support 12+8
+
 # depends & build
+
 ref Dockerfiles/
 1. Dockerfile.builder
 1. Dockerfile.runtime
@@ -48,8 +51,21 @@ build/amd64/client -datanode="192.168.88.109:8001" -command=get /source_in_serve
 ```
 
 # notice
-glog has delay, call google::FlushLogFiles(INFO....) after throwing exception 
-# comparing with spkdfs before
+glog has delay, call google::FlushLogFiles(INFO....) after throwing exception.
+
+# SDK Lock
+
+* remote lock: lock write, not lock read
+
+* local lock: logic_lock, real_lock
+
+  > logic_lock(for Inode, In a scenario where the same file is opened multiple times and the second time the server retrieves the inode, it is found that it has changed. At this time, it is necessary to update the local inode. At this time, the first open has not yet closed, and hastily replacing the inode with a new one may cause consistency issues. It is possible that the content read from this file contains both previous and latest data. If the server does not lock it, this situation cannot be avoided, but we should also do our best.), 
+
+* real_lock(for file write, align granularity)
+
+  >  The locking of local cache files, more precisely, is the locking of a slice of the file. When the upper layer application reads from a buffer smaller than our block size, it will cause the client to pull the same data block from the datanode multiple times. When preparing to pull, the lock will be applied, and when the pull is completed, it will be released. When the upper layer application requests different data blocks during the pull, but the data block is within the same slice, it will cause subsequent requests to block and wait for the first pull to complete.
+
+# bench on raspberrypi 4B previous spkdfs
 
 | filesize | erasure-code, section(MB) | cost time(s) | ref: scp cost time(s)    |
 | -------- | ---------------- | --------------- | ------- |

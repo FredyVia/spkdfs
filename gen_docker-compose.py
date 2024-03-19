@@ -28,7 +28,6 @@ compose_conf = """
 """
 
 compose_header = """
-version: '3.7'
 services:
 """
 
@@ -46,6 +45,13 @@ compose_body = """
     networks:
       spkdfs_net:
         ipv4_address: ${IP}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          memory: 256M
 """
 
 compose_tail = """
@@ -72,10 +78,10 @@ with open("node.conf", "w") as f:
   f.write(rendered_str)
 
 with open("docker-compose.yml", 'w') as f:
-  f.write(compose_header)
+  f.write(compose_header.lstrip())
   for i in range(1, COUNT_NODES+1):
     rendered_str = template_body.substitute(
         INDEX=i, IP=IPS[i-1])
     f.write(rendered_str)
-  f.write(compose_tail)
+  f.write(compose_tail.lstrip())
 template_conf

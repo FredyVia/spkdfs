@@ -4,8 +4,6 @@
 #include <brpc/channel.h>
 #include <brpc/controller.h>  // brpc::Controller
 #include <brpc/server.h>      // brpc::Server
-#define DBG_MACRO_NO_WARNING
-#include <dbg.h>
 #include <glog/logging.h>
 
 #include <exception>
@@ -16,7 +14,6 @@
 
 namespace spkdfs {
   using namespace std;
-  using namespace dbg;
   using namespace braft;
   Node Node::INVALID_NODE = Node("0.0.0.0", 0);
 
@@ -24,7 +21,7 @@ namespace spkdfs {
     butil::EndPoint ep;
     butil::str2endpoint(ip.c_str(), port, &ep);
     braft::PeerId peerid(ep);
-    LOG(INFO) << peerid;
+    VLOG(2) << peerid;
     return peerid;
   }
 
@@ -43,14 +40,14 @@ namespace spkdfs {
     CommonService_Stub stub(&channel);
     stub.echo(&cntl, &request, &response, NULL);
 
-    LOG(INFO) << (*this);
+    VLOG(2) << (*this);
     if (cntl.Failed()) {
       LOG(WARNING) << "RPC failed: " << cntl.ErrorText();
       LOG(WARNING) << "OFFLINE";
       nodeStatus = NodeStatus::OFFLINE;
     } else {
       nodeStatus = NodeStatus::ONLINE;
-      LOG(INFO) << "ONLINE";
+      VLOG(2) << "ONLINE";
     }
   }
   bool Node::operator==(const Node& other) const { return ip == other.ip; }
@@ -100,8 +97,8 @@ namespace spkdfs {
       t.join();
     }
     for (const auto& node : nodes) {
-      LOG(INFO) << node;
-      dbg::pretty_print(LOG(INFO), node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
+      VLOG(2) << node
+              << " status: " << (node.nodeStatus == NodeStatus::ONLINE ? "ONLINE" : "OFFLINE");
     }
   }
 

@@ -114,7 +114,7 @@ namespace spkdfs {
     return *(intersection.begin());
   }
 
-  void createDirectoryIfNotExist(const std::string &dir) {
+  void mkdir_f(const std::string &dir) {
     filesystem::path dirPath{dir};
     error_code ec;  // 用于接收错误码
 
@@ -162,14 +162,35 @@ namespace spkdfs {
     block.resize(filesize);
     ifstream ifile(path, std::ios::binary);
     if (!ifile) {
-      cout << "Failed to open file for reading." << path << endl;
+      LOG(FATAL) << "Failed to open file for reading." << path << endl;
       throw std::runtime_error("openfile error:" + path);
     }
     if (!ifile.read(&block[0], filesize)) {
-      cout << "Failed to read file content." << endl;
+      LOG(FATAL) << "Failed to read file content." << endl;
       throw std::runtime_error("readfile error:" + path);
     }
     ifile.close();
     return block;
+  }
+
+  vector<std::string> list_dir(const std::string &dst) {
+    vector<std::string> res;
+    for (const auto &entry : fs::directory_iterator(dst)) {
+      const auto name = entry.path().filename().string();
+      res.push_back(name);
+    }
+    return res;
+  }
+
+  void clear_dir(const string &path) {
+    try {
+      if (fs::exists(path) && fs::is_directory(path)) {
+        for (const auto &entry : fs::directory_iterator(path)) {
+          fs::remove_all(entry.path());
+        }
+      }
+    } catch (const fs::filesystem_error &e) {
+      std::cerr << "Error clearing directory: " << e.what() << '\n';
+    }
   }
 }  // namespace spkdfs

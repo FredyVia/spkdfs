@@ -16,7 +16,9 @@ namespace spkdfs {
   class SDK {
   private:
     brpc::Channel nn_master_channel;
+    brpc::Channel nn_slave_channel;
     NamenodeService_Stub* nn_master_stub_ptr;
+    NamenodeService_Stub* nn_slave_stub_ptr;
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
 
     PathLocks pathlocks;
@@ -30,6 +32,7 @@ namespace spkdfs {
     std::shared_mutex mutex_local_inode_cache;
 
     DatanodeService_Stub* get_dn_stub(const std::string& node);
+    std::string get_slave_namenode(std::vector<std::string>& namenodes, const std::string& master, const std::string& user_defined);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);
     inline std::pair<int, int> get_indexs(const Inode& inode, uint64_t offset, size_t size) const;
@@ -61,7 +64,7 @@ namespace spkdfs {
     void unlock(const std::string& dst);
 
   public:
-    SDK(const std::string& datanode);
+    SDK(const std::string& datanode, const std::string& namenode="");
     ~SDK();
     void open(const std::string& path, int flags);
     void create(const std::string& path);

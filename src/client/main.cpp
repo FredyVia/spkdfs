@@ -12,13 +12,15 @@ DEFINE_string(command, "ls", "command type: ls mkdir put get");
 DEFINE_string(datanode, "192.168.88.112:8001", "datanode addr:port");
 DEFINE_string(storage_type, "RS<3,2,64>",
               "rs or replication, example: rs<3,2,64> re<5,64>, k=3,m=2,blocksize=64MB ");
+DEFINE_string(namenode, "", "set the default namenode to read, addr:port");
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
   google::InitGoogleLogging(argv[0]);
   // 将日志信息输出到标准输出
   FLAGS_logtostderr = true;
-  SDK sdk(FLAGS_datanode);
+  SDK sdk(FLAGS_datanode, FLAGS_namenode);
+
   if (FLAGS_command == "put") {
     sdk.put(argv[1], argv[2], FLAGS_storage_type);
     cout << "success" << endl;

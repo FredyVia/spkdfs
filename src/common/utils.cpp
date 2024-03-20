@@ -162,11 +162,11 @@ namespace spkdfs {
     block.resize(filesize);
     ifstream ifile(path, std::ios::binary);
     if (!ifile) {
-      cout << "Failed to open file for reading." << path << endl;
+      LOG(FATAL) << "Failed to open file for reading." << path << endl;
       throw std::runtime_error("openfile error:" + path);
     }
     if (!ifile.read(&block[0], filesize)) {
-      cout << "Failed to read file content." << endl;
+      LOG(FATAL) << "Failed to read file content." << endl;
       throw std::runtime_error("readfile error:" + path);
     }
     ifile.close();

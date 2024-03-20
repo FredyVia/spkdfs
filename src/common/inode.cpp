@@ -90,7 +90,7 @@ namespace spkdfs {
     int len = 0;
     char* datas[k];
     for (auto& str : vec) {
-      cout << "sha256sum: " << cal_sha256sum(str) << endl;
+      VLOG(2) << "sha256sum: " << cal_sha256sum(str) << endl;
       datas[len++] = str.data();
       if (len == k) {
         break;
@@ -110,7 +110,7 @@ namespace spkdfs {
   bool RSStorageType::check(int success) const { return success > k; }
 
   std::vector<std::string> REStorageType::encode(const std::string& data) const {
-    cout << "re encode" << endl;
+    VLOG(2) << "re encode" << endl;
     vector<std::string> vec;
     for (int i = 0; i < replications; i++) {
       vec.push_back(data);
@@ -200,7 +200,7 @@ namespace spkdfs {
       string node, blkid;
       getline(ss, node, '|');   // 提取第一个部分
       getline(ss, blkid, '|');  // 提取第二个部分
-      cout << node << "|" << blkid << endl;
+      VLOG(2) << node << "|" << blkid << endl;
       res.push_back(make_pair(node, blkid));
     }
     return res;

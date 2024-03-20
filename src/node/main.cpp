@@ -32,6 +32,5 @@ int main(int argc, char* argv[]) {
   spkdfs::Server server(nodes);
   LOG(INFO) << "going to start server";
   server.start();
-  // cout << "exit" ;
   return 0;
 }

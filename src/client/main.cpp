@@ -15,36 +15,35 @@ DEFINE_string(storage_type, "RS<3,2,64>",
 
 int main(int argc, char* argv[]) {
   gflags::ParseCommandLineFlags(&argc, &argv, true);
-  // if (argc < 2) {
-  //   cout << "help" << endl;
-  //   return -1;
-  // }
-  // 初始化 channel
+  google::InitGoogleLogging(argv[0]);
+  // 将日志信息输出到标准输出
+  FLAGS_logtostderr = true;
   SDK sdk(FLAGS_datanode);
-  // for (int i = 1; i < argc; ++i) {
-  // cout << "Remaining arg: " << argv[i] << endl;
-  // }
   if (FLAGS_command == "put") {
     sdk.put(argv[1], argv[2], FLAGS_storage_type);
+    LOG(INFO) << "success";
   } else if (FLAGS_command == "get") {
     sdk.get(argv[1], argv[2]);
+    LOG(INFO) << "success";
   } else if (FLAGS_command == "ls") {
     Inode inode = sdk.ls(argv[1]);
     if (inode.is_directory) {
       for (auto sub : inode.sub) {
-        cout << sub << endl;
+        LOG(INFO) << sub;
       }
     } else {
-      cout << inode.get_fullpath() << " " << inode.filesize << " "
-           << (inode.storage_type_ptr == nullptr ? "UNKNOWN" : inode.storage_type_ptr->to_string())
-           << endl;
+      LOG(INFO) << inode.get_fullpath() << " " << inode.filesize << " "
+                << (inode.storage_type_ptr == nullptr ? "UNKNOWN"
+                                                      : inode.storage_type_ptr->to_string());
     }
   } else if (FLAGS_command == "mkdir") {
     sdk.mkdir(argv[1]);
+    LOG(INFO) << "success";
   } else if (FLAGS_command == "rm") {
     sdk.rm(argv[1]);
+    LOG(INFO) << "success";
   } else {
-    cerr << "unknown command" << endl;
+    LOG(ERROR) << "unknown command";
   }
   return 0;
 }

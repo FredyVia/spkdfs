@@ -19,8 +19,8 @@ namespace spkdfs {
   RocksDB::RocksDB(const std::string& db_dir)
       : origin_dir(db_dir + "/origin"), backup_dir(db_dir + "/backup") {
     // restore db
-    createDirectoryIfNotExist(origin_dir);
-    createDirectoryIfNotExist(backup_dir);
+    mkdir_f(origin_dir);
+    mkdir_f(backup_dir);
     Status s
         = BackupEngine::Open(Env::Default(), BackupEngineOptions(backup_dir), &backup_engine_ptr);
     LOG_IF(ERROR, !s.ok()) << s.ToString();

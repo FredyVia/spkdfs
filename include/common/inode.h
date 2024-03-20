@@ -102,6 +102,7 @@ namespace spkdfs {
       return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
     }
   };
+  bool operator==(const Inode& lhs, const Inode& rhs) noexcept;
 
   void to_json(nlohmann::json& j, const Inode& inode);
 

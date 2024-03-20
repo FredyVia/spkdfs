@@ -237,4 +237,8 @@ namespace spkdfs {
     inode.ddl_lock = j.at("ddl_lock").get<uint64_t>();
     // inode.modification_time = j.at("modification_time").get<int>();
   }
+
+  bool operator==(const Inode& linode, const Inode& rinode) noexcept {
+    return linode.sub == rinode.sub && linode.filesize == rinode.filesize;
+  }
 }  // namespace spkdfs

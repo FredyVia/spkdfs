@@ -66,13 +66,12 @@ namespace spkdfs {
           int retryCount = 0;  // 重试计数器
           while (true) {
             try {
-              std::shared_lock<std::shared_mutex> lock(mutex_remoteLocks);
               vector<string> paths;
-              for (auto &p : remoteLocks) {
-                paths.push_back(p.first);
+              {
+                std::shared_lock<std::shared_mutex> lock(mutex_remoteLocks);
+                paths = vector<string>(remoteLocks.begin(), remoteLocks.end());
               }
-              lock.unlock();
-              lock_remote(paths);
+              _lock_remote(paths);
 
               break;
             } catch (const exception &e) {
@@ -116,6 +115,13 @@ namespace spkdfs {
   }
 
   Inode SDK::get_inode(const std::string &dst) {
+    if (local_inode_cache.find(dst) == local_inode_cache.end()) {
+      throw runtime_error("cannot find inode in local_inode_cache");
+    }
+    return local_inode_cache[dst];
+  }
+
+  Inode SDK::get_remote_inode(const std::string &dst) {
     // if(inodeCache.find(dst) != inodeCache.end()){
     //   return inodeCache[dst];
     // }
@@ -133,7 +139,7 @@ namespace spkdfs {
     return inode;
   }
 
-  Inode SDK::ls(const std::string &path) { return get_inode(path); }
+  Inode SDK::ls(const std::string &path) { return get_remote_inode(path); }
 
   void SDK::mkdir(const string &dst) {
     Controller cntl;
@@ -180,24 +186,75 @@ namespace spkdfs {
     return res;
   }
 
+  void SDK::update_inode(const std::string &path) {
+    Inode local = local_inode_cache[path];
+    Inode remote = get_remote_inode(path);
+    for (int i = 0; i < min(local.sub.size(), remote.sub.size()); i++) {
+      if (local.sub[i] != remote.sub[i]) {
+        fs::remove_all(get_tmp_index_path(path, i));
+      }
+    }
+    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
+    local_inode_cache[path] = remote;
+  }
+
+  void SDK::read_lock(const std::string &dst) { pathlocks.read_lock(get_tmp_path(dst)); }
+
+  void SDK::write_lock(const std::string &dst) {
+    pathlocks.write_lock(get_tmp_path(dst));
+    lock_remote(dst);
+  }
+
+  void SDK::_unlock_remote(const std::string &dst) {
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.erase(dst);
+  }
+
+  void SDK::unlock(const std::string &dst) {
+    // read also unlock remote(no effection)
+    _unlock_remote(dst);
+    pathlocks.unlock(get_tmp_path(dst));
+  }
+
   void SDK::open(const std::string &path, int flags) {
     cout << "open flags: " << flags << endl;
-    createDirectoryIfNotExist(get_tmp_path(path));
-    if ((flags & O_ACCMODE) != O_RDONLY) {
-      createDirectoryIfNotExist(get_tmp_write_path(path));
-      lock(path);
-    }
+
     if (flags & O_CREAT) {
       cout << "open with flag: O_CREAT" << endl;
       create(path);
     }
+
+    string local_path = get_tmp_path(path);
+    mkdir_f(local_path);
+    if ((flags & O_ACCMODE) != O_RDONLY) {
+      string write_path = get_tmp_write_path(path);
+      write_lock(path);
+      mkdir_f(write_path);
+      clear_dir(write_path);
+    } else {
+      read_lock(path);
+    }
+    update_inode(path);
+
+    // truncate is not stateless, must be after update_inode
     if (flags & O_TRUNC) {
       cout << "open with flag: O_TRUNC" << endl;
       truncate(path, 0);
     }
   }
 
-  void SDK::lock_remote(const std::vector<std::string> &paths) {
+  void SDK::lock_remote(const std::string &path) {
+    _lock_remote(path);
+    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
+    remoteLocks.insert(path);
+  }
+
+  void SDK::_lock_remote(const std::string &path) {
+    vector<string> paths = {path};
+    _lock_remote(paths);
+  }
+
+  void SDK::_lock_remote(const std::vector<std::string> &paths) {
     brpc::Controller cntl;
     NNLockRequest request;
     CommonResponse response;
@@ -210,19 +267,8 @@ namespace spkdfs {
 
   void SDK::close(const std::string &dst) {
     fsync(dst);
+    local_inode_cache.erase(dst);
     unlock(dst);
-  }
-
-  void SDK::lock(const std::string &dst) {
-    vector<string> res = {dst};
-    lock_remote(res);
-    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
-    remoteLocks.insert(make_pair(dst, get_inode(dst)));
-  }
-
-  void SDK::unlock(const std::string &dst) {
-    std::unique_lock<std::shared_mutex> lock(mutex_remoteLocks);
-    remoteLocks.erase(dst);
   }
 
   void SDK::put(const string &srcFilePath, const string &dstFilePath,
@@ -243,32 +289,32 @@ namespace spkdfs {
     nn_master_stub_ptr->put(&cntl, &nn_put_req, &nn_put_resp, NULL);
     check_response(cntl, nn_put_resp.common());
 
-    lock(dstFilePath);
-    NNPutOKRequest nn_putok_req;
-    *(nn_putok_req.mutable_path()) = dstFilePath;
-    nn_putok_req.set_filesize(filesize);
-    uint64_t block_size = storage_type_ptr->getBlockSize();
-    cout << "using block size: " << block_size << endl;
+    _lock_remote(dstFilePath);
+    NNPutOKRequest nnPutokReq;
+    *(nnPutokReq.mutable_path()) = dstFilePath;
+    nnPutokReq.set_filesize(filesize);
+    uint64_t blockSize = storage_type_ptr->getBlockSize();
+    cout << "using block size: " << blockSize << endl;
     string block;
-    block.resize(block_size);
+    block.resize(blockSize);
     int blockIndex = 0;
 
     int node_index = 0;
     int i = 0;  // used to make std::set be ordered
-    while (ifile.read(&block[0], block_size) || ifile.gcount() > 0) {
+    while (ifile.read(&block[0], blockSize) || ifile.gcount() > 0) {
       size_t bytesRead = ifile.gcount();
-      // if (bytesRead < block_size) {
-      //   block.resize(block_size, '0');  // 使用0填充到新大小
+      // if (bytesRead < blockSize) {
+      //   block.resize(blockSize, '0');  // 使用0填充到新大小
       // }
       string res = encode_one(storage_type_ptr, block);
-      nn_putok_req.add_sub(res);
+      nnPutokReq.add_sub(res);
       blockIndex++;
     }
     ifile.close();
-    unlock(dstFilePath);
+    _unlock_remote(dstFilePath);
     CommonResponse response;
     cntl.Reset();
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
 
     cout << "put ok" << endl;
@@ -367,7 +413,7 @@ namespace spkdfs {
   }
 
   void SDK::get(const std::string &src, const std::string &dst) {
-    Inode inode = get_inode(src);
+    Inode inode = get_remote_inode(src);
 
     // cout << "using storage type: " << inode.storage_type_ptr->to_string() << endl;
     ofstream dstFile(dst, std::ios::binary);
@@ -392,6 +438,18 @@ namespace spkdfs {
     cout << "success" << endl;
   }
 
+  // void SDK::local_truncate(const Inode& inode, size_t size) {
+  //   inode.getBlockSize();
+  //   inode.filesize;
+  //   for (const auto &entry : fs::directory_iterator(write_dst)) {
+  //     const auto index_str = entry.path().filename().string();
+  //     if (entry.is_directory()) {
+  //     }
+  //     res.push_back(stoi(index_str));
+  //   }
+  //   inode.getBlockSize();
+  // }
+
   void SDK::truncate(const std::string &dst, size_t size) {
     Inode inode = get_inode(dst);
     if (inode.filesize == size) {
@@ -401,15 +459,15 @@ namespace spkdfs {
       write_data(dst, inode.filesize, string(size - inode.filesize, '\0'));
       return;
     }
-    NNPutOKRequest nn_putok_req;
-    *(nn_putok_req.mutable_path()) = dst;
-    nn_putok_req.set_filesize(size);
+    NNPutOKRequest nnPutokReq;
+    *(nnPutokReq.mutable_path()) = dst;
+    nnPutokReq.set_filesize(size);
     for (int i = 0; i < align_up(size, inode.getBlockSize()); i++) {
-      nn_putok_req.add_sub(inode.sub[i]);
+      nnPutokReq.add_sub(inode.sub[i]);
     }
     Controller cntl;
     CommonResponse response;
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
   }
 
@@ -454,7 +512,7 @@ namespace spkdfs {
       if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
         block = read_file(tmp_path);
       } else {
-        pathlocks.lock(tmp_path);
+        pathlocks.write_lock(tmp_path);
         if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
           block = read_file(tmp_path);
 
@@ -494,9 +552,6 @@ namespace spkdfs {
   }
 
   void SDK::write_data(const string &path, uint64_t offset, const std::string &s) {
-    createDirectoryIfNotExist(get_tmp_path(path));
-    createDirectoryIfNotExist(get_tmp_write_path(path));
-
     Inode inode = get_inode(path);
 
     size_t size = s.size();
@@ -534,7 +589,7 @@ namespace spkdfs {
       ln_path_index(path, index);
     }
   }
-
+  // stateless
   void SDK::create(const string &path) {
     open("", false);
     string dst_path = get_tmp_index_path("", 0);
@@ -552,13 +607,9 @@ namespace spkdfs {
       throw runtime_error(write_dst + " is not directory");
     }
     vector<int> res;
-    for (const auto &entry : fs::directory_iterator(write_dst)) {
-      const auto index_str = entry.path().filename().string();
-      if (entry.is_directory()) {
-        throw runtime_error(index_str + " is directory");
-      }
-      res.push_back(stoi(index_str));
-    }
+    for (auto &file : list_dir(write_dst)) {
+      res.push_back(stoi(file));
+    };
     if (res.empty()) return;
     sort(res.begin(), res.end());
     Inode inode = get_inode(dst);
@@ -569,7 +620,7 @@ namespace spkdfs {
     string index_block;
     for (auto &i : res) {
       string index_file_path = write_dst + "/" + std::to_string(i);
-      pathlocks.lock(index_file_path);
+      pathlocks.read_lock(index_file_path);
       index_block = read_file(index_file_path);
       last_index_filesize = index_block.size();
       inode.sub[i] = encode_one(inode.storage_type_ptr, index_block);
@@ -579,14 +630,14 @@ namespace spkdfs {
     int filesize = std::max(inode.filesize,
                             (uint64_t)res.back() * inode.getBlockSize() + last_index_filesize);
     Controller cntl;
-    NNPutOKRequest nn_putok_req;
+    NNPutOKRequest nnPutokReq;
     CommonResponse response;
-    *(nn_putok_req.mutable_path()) = dst;
-    nn_putok_req.set_filesize(filesize);
+    *(nnPutokReq.mutable_path()) = dst;
+    nnPutokReq.set_filesize(filesize);
     for (auto &s : inode.sub) {
-      nn_putok_req.add_sub(s);
+      nnPutokReq.add_sub(s);
     }
-    nn_master_stub_ptr->put_ok(&cntl, &nn_putok_req, &response, NULL);
+    nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
   }
   // std::vector<std::string> SDK::write_data(const Inode &inode, int start_index,
   //                                          const std::string &s) {

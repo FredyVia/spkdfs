@@ -24,10 +24,10 @@ namespace spkdfs {
 
   private:
     std::string my_ip;
+
     brpc::Server nn_server;
     brpc::Server dn_server;
-    // brpc::Server dn_rpc_server;
-    // brpc::Server dn_raft_server;
+
     RaftDN* dn_raft_ptr = nullptr;
     RaftNN* nn_raft_ptr = nullptr;
     void on_namenode_master_change(const Node& node);

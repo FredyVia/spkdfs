@@ -3,13 +3,13 @@
 #if (1)
 #  include "client/linux/handler/exception_handler.h"
 #endif
+#include <gflags/gflags.h>
 #include <glog/logging.h>
 
 #include <iostream>
 
 #include "common/node.h"
 #include "common/utils.h"
-#include "gflags/gflags.h"
 #include "node/config.h"
 #include "node/server.h"
 

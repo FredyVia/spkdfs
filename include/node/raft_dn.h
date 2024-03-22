@@ -9,6 +9,7 @@
 #include <brpc/closure_guard.h>
 #include <common/node.h>
 
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <set>
@@ -18,7 +19,6 @@
 
 #include "common/node.h"
 #include "common/utils.h"
-#include "exception"
 
 namespace spkdfs {
   using DNApplyCallbackType = std::function<void(const std::vector<Node>&)>;

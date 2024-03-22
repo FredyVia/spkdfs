@@ -1,10 +1,11 @@
 #ifndef NAMENODE_H
 #define NAMENODE_H
+#include <brpc/closure_guard.h>
+
 #include <functional>
 #include <memory>
 #include <string>
 
-#include "brpc/closure_guard.h"
 #include "common/exception.h"
 #include "common/node.h"
 #include "node/raft_nn.h"

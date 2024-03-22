@@ -36,6 +36,8 @@ find_package(RocksDB CONFIG REQUIRED)
 
 find_package(cryptopp CONFIG REQUIRED)
 
+find_package(benchmark CONFIG REQUIRED)
+
 pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
 
 pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET GLOBAL fuse3)
@@ -74,7 +76,6 @@ target_link_libraries(node unofficial::braft::braft-shared gflags::gflags unoffi
 target_link_libraries(client gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp glog::glog)
 target_link_libraries(tests GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
 target_link_libraries(fuse3 unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
-target_link_libraries(benchmark unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
-# target_link_libraries(benchmark )
+target_link_libraries(benchmark unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp benchmark::benchmark)
 
 enable_testing()

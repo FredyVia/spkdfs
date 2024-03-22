@@ -21,27 +21,30 @@ int main(int argc, char* argv[]) {
   SDK sdk(FLAGS_datanode);
   if (FLAGS_command == "put") {
     sdk.put(argv[1], argv[2], FLAGS_storage_type);
-    LOG(INFO) << "success";
+    cout << "success" << endl;
   } else if (FLAGS_command == "get") {
     sdk.get(argv[1], argv[2]);
-    LOG(INFO) << "success";
+    cout << "success" << endl;
   } else if (FLAGS_command == "ls") {
     Inode inode = sdk.ls(argv[1]);
     if (inode.is_directory) {
-      for (auto sub : inode.sub) {
-        LOG(INFO) << sub;
+      if (inode.sub.empty()) {
+        cout << "empty" << endl;
+      } else {
+        for (auto sub : inode.sub) {
+          cout << sub << endl;
+        }
       }
     } else {
-      LOG(INFO) << inode.get_fullpath() << " " << inode.filesize << " "
-                << (inode.storage_type_ptr == nullptr ? "UNKNOWN"
-                                                      : inode.storage_type_ptr->to_string());
+      cout << inode.get_fullpath() << " " << inode.filesize << " "
+           << (inode.storage_type_ptr == nullptr ? "UNKNOWN" : inode.storage_type_ptr->to_string());
     }
   } else if (FLAGS_command == "mkdir") {
     sdk.mkdir(argv[1]);
-    LOG(INFO) << "success";
+    cout << "success" << endl;
   } else if (FLAGS_command == "rm") {
     sdk.rm(argv[1]);
-    LOG(INFO) << "success";
+    cout << "success" << endl;
   } else {
     LOG(ERROR) << "unknown command";
   }

@@ -506,7 +506,6 @@ namespace spkdfs {
         pathlocks.write_lock(tmp_path);
         if (fs::exists(tmp_path) && fs::file_size(tmp_path) > 0) {
           block = read_file(tmp_path);
-
         } else {
           ofstream ofile(tmp_path, std::ios::binary);
           if (!ofile) {

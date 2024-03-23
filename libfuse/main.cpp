@@ -110,7 +110,7 @@ public:
   }
 
   void open(const string &dst, int flags) {
-    cout << "libfuse open: " << dst << endl;
+    cout << "libfuse open: " << gettid() << ", path: " << dst << ", flags: " << flags << endl;
     try {
       sdk->open(dst, flags);
     } catch (const spkdfs::MessageException &e) {
@@ -265,11 +265,6 @@ static struct options {
 static const struct fuse_opt option_spec[]
     = {OPTION("--ips=%s", ips), OPTION("-h", show_help), OPTION("--help", show_help), FUSE_OPT_END};
 FUSE *fuse_ptr;
-static void *spkdfs_init(struct fuse_conn_info *conn, struct fuse_config *cfg) {
-  (void)conn;
-  cfg->kernel_cache = 1;
-  return NULL;
-}
 
 static int spkdfs_getattr(const char *path, struct stat *stbuf, struct fuse_file_info *fi) {
   (void)fi;
@@ -371,18 +366,10 @@ static int spkdfs_read(const char *path, char *buff, size_t size, off_t offset,
     return -ENOENT;
   }
   return size;
-  // if (strcmp(path + 1, options.filename) != 0) return -ENOENT;
-
-  // len = strlen(options.contents);
-  // if (offset < len) {
-  //   if (offset + size > len) size = len - offset;
-  //   memcpy(buf, options.contents + offset, size);
-  // } else
-  //   size = 0;
 }
+
 static int spkdfs_write(const char *path, const char *data, size_t size, off_t offset,
                         struct fuse_file_info *) {
-  // sdk->write();
   try {
     string s(data, size);
     fuse_ptr->write(path, offset, s);
@@ -425,22 +412,19 @@ static int spkdfs_utimens(const char *path, const struct timespec ts[2],
 }
 
 static const struct fuse_operations spkdfs_oper = {
-    .getattr = spkdfs_getattr,  // 316
-    // .mknod      = lofs_mknod,
-    .mkdir = spkdfs_mkdir,  // 342
-    .unlink = spkdfs_rm,    // 345
-    .rmdir = spkdfs_rm,     // 348
-    // .rename     = lofs_rename,
-    // .truncate = spkdfs_truncate,  // 392
-    .open = spkdfs_open,        // 441
-    .read = spkdfs_read,        // 452
-    .write = spkdfs_write,      // 464
-    .release = spkdfs_close,    // 515
-    .fsync = spkdfs_fsync,      // 522
-    .readdir = spkdfs_readdir,  // 561
-    // .init = spkdfs_init,        // 583
-    .create = spkdfs_create,    // 614
-    .utimens = spkdfs_utimens,  // 661
+    .getattr = spkdfs_getattr,    // 316
+    .mkdir = spkdfs_mkdir,        // 342
+    .unlink = spkdfs_rm,          // 345
+    .rmdir = spkdfs_rm,           // 348
+    .truncate = spkdfs_truncate,  // 392
+    .open = spkdfs_open,          // 441
+    .read = spkdfs_read,          // 452
+    .write = spkdfs_write,        // 464
+    .release = spkdfs_close,      // 515
+    .fsync = spkdfs_fsync,        // 522
+    .readdir = spkdfs_readdir,    // 561
+    .create = spkdfs_create,      // 614
+    .utimens = spkdfs_utimens,    // 661
 };
 
 static void show_help(const char *progname) {

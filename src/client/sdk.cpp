@@ -180,7 +180,10 @@ namespace spkdfs {
   }
 
   void SDK::update_inode(const std::string &path) {
+    std::shared_lock<std::shared_mutex> local_read_lock(mutex_local_inode_cache);
     Inode local = local_inode_cache[path];
+    local_read_lock.unlock();
+
     Inode remote = get_remote_inode(path);
     for (int i = 0; i < min(local.sub.size(), remote.sub.size()); i++) {
       if (local.sub[i] != remote.sub[i]) {
@@ -190,7 +193,7 @@ namespace spkdfs {
     for (int i = remote.sub.size(); i < local.sub.size(); i++) {
       fs::remove_all(get_tmp_index_path(path, i));
     }
-    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
+    std::unique_lock<std::shared_mutex> local_write_lock(mutex_local_inode_cache);
     local_inode_cache[path] = remote;
   }
 
@@ -213,7 +216,7 @@ namespace spkdfs {
   }
 
   void SDK::open(const std::string &path, int flags) {
-    VLOG(2) << "open flags: " << flags;
+    VLOG(2) << "open flags: " << flags << endl;
 
     if (flags & O_CREAT) {
       // ref mknod & create in libfuse
@@ -262,8 +265,9 @@ namespace spkdfs {
 
   void SDK::close(const std::string &dst) {
     fsync(dst);
-    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
+    std::unique_lock<std::shared_mutex> local_write_lock(mutex_local_inode_cache);
     local_inode_cache.erase(dst);
+    local_write_lock.unlock();
     unlock(dst);
   }
 
@@ -289,7 +293,7 @@ namespace spkdfs {
     NNPutOKRequest nnPutokReq;
     *(nnPutokReq.mutable_path()) = dstFilePath;
     nnPutokReq.set_filesize(filesize);
-    uint64_t blockSize = storage_type_ptr->getBlockSize();
+    uint64_t blockSize = storage_type_ptr->get_block_size();
     VLOG(2) << "using block size: " << blockSize;
     string block;
     block.resize(blockSize);
@@ -433,7 +437,7 @@ namespace spkdfs {
   }
 
   // void SDK::local_truncate(const Inode& inode, size_t size) {
-  //   inode.getBlockSize();
+  //   inode.get_block_size();
   //   inode.filesize;
   //   for (const auto &entry : fs::directory_iterator(write_dst)) {
   //     const auto index_str = entry.path().filename().string();
@@ -441,34 +445,32 @@ namespace spkdfs {
   //     }
   //     res.push_back(stoi(index_str));
   //   }
-  //   inode.getBlockSize();
+  //   inode.get_block_size();
   // }
-  void SDK::truncate(const std::string &dst, size_t size) { open(dst, O_WRONLY | O_TRUNC); }
+  void SDK::truncate(const std::string &dst, size_t size) {
+    open(dst, O_WRONLY | O_TRUNC);
+    unlock(dst);
+  }
   void SDK::_truncate(const std::string &dst, size_t size) {
     Inode inode = get_inode(dst);
     if (inode.filesize == size) {
       return;
     }
-    if (inode.filesize < size) {
-      write_data(dst, inode.filesize, string(size - inode.filesize, '\0'));
-      return;
-    }
     NNPutOKRequest nnPutokReq;
     *(nnPutokReq.mutable_path()) = dst;
     nnPutokReq.set_filesize(size);
-    for (int i = 0; i < align_up(size, inode.getBlockSize()); i++) {
+    for (int i = 0; i < align_up(size, inode.get_block_size()); i++) {
       nnPutokReq.add_sub(inode.sub[i]);
     }
     Controller cntl;
     CommonResponse response;
     nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
-    unlock(dst);
   }
 
   inline pair<int, int> SDK::get_indexs(const Inode &inode, uint64_t offset, size_t size) const {
-    return make_pair(align_index_down(offset, inode.getBlockSize()),
-                     align_index_up(offset + size, inode.getBlockSize()));
+    return make_pair(align_index_down(offset, inode.get_block_size()),
+                     align_index_up(offset + size, inode.get_block_size()));
   }
 
   void SDK::ln_path_index(const std::string &path, uint32_t index) const {
@@ -500,6 +502,7 @@ namespace spkdfs {
     string block;
     for (int index = indexs.first; index < indexs.second; index++) {
       if (iter >= inode.sub.end()) {
+        oss << string((indexs.second - index) * inode.get_block_size(), '\0');
         break;
       }
       string blks = *iter;
@@ -541,8 +544,8 @@ namespace spkdfs {
     }
     pair<int, int> indexs = get_indexs(inode, offset, size);
     auto s = read_data(inode, indexs);
-    return string(s.begin() + offset - indexs.first * inode.getBlockSize(),
-                  s.begin() + offset - indexs.first * inode.getBlockSize() + size);
+    return string(s.begin() + offset - indexs.first * inode.get_block_size(),
+                  s.begin() + offset - indexs.first * inode.get_block_size() + size);
   }
 
   void SDK::write_data(const string &path, uint64_t offset, const std::string &s) {
@@ -552,18 +555,18 @@ namespace spkdfs {
     auto iter = s.begin();
 
     pair<int, int> indexs = get_indexs(inode, offset, size);
-    if (offset < inode.filesize && offset % inode.getBlockSize() != 0) {
+    if (offset < inode.filesize && offset % inode.get_block_size() != 0) {
       read_data(inode, make_pair(indexs.first, indexs.first + 1));
     }
     if (offset + size < inode.filesize && indexs.first != indexs.second - 1
-        && (offset + size) % inode.getBlockSize() != 0) {
+        && (offset + size) % inode.get_block_size() != 0) {
       read_data(inode, make_pair(indexs.second - 1, indexs.second));
     }
 
     for (int index = indexs.first; index < indexs.second; index++) {
-      size_t left = index == indexs.first ? offset % inode.getBlockSize() : 0;
-      size_t right = index == indexs.second - 1 ? (offset + size) % inode.getBlockSize()
-                                                : inode.getBlockSize();
+      size_t left = index == indexs.first ? offset % inode.get_block_size() : 0;
+      size_t right = index == indexs.second - 1 ? (offset + size) % inode.get_block_size()
+                                                : inode.get_block_size();
       size_t localSize = right - left;
       // iter += localSize;
 
@@ -622,7 +625,7 @@ namespace spkdfs {
       pathlocks.unlock(index_file_path);
     }
     int filesize = std::max(inode.filesize,
-                            (uint64_t)res.back() * inode.getBlockSize() + last_index_filesize);
+                            (uint64_t)res.back() * inode.get_block_size() + last_index_filesize);
     Controller cntl;
     NNPutOKRequest nnPutokReq;
     CommonResponse response;

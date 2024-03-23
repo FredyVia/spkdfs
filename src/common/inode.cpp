@@ -107,7 +107,7 @@ namespace spkdfs {
     return string(out_data, out_data_len);
   }
 
-  bool RSStorageType::check(int success) const { return success > k; }
+  bool RSStorageType::check(int succ_cout) const { return succ_cout > k; }
 
   std::vector<std::string> REStorageType::encode(const std::string& data) const {
     VLOG(2) << "re encode" << endl;
@@ -129,7 +129,7 @@ namespace spkdfs {
   }
   std::string REStorageType::decode(std::vector<std::string> vec) const { return vec.front(); }
 
-  bool REStorageType::check(int success) const { return success >= 1; }
+  bool REStorageType::check(int succ_cout) const { return succ_cout >= 1; }
 
   std::string Inode::value() const {
     nlohmann::json j;

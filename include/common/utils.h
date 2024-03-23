@@ -24,7 +24,8 @@ namespace spkdfs {
 
   public:
     void stop();
-    IntervalTimer(uint interval, const RunFuncType& runFunc, const TimeoutFuncType& timeoutFunc);
+    IntervalTimer(uint interval, const RunFuncType& runFunc,
+                  const TimeoutFuncType& timeoutFunc = nullptr);
     ~IntervalTimer();
     class TimeoutException : std::exception {
     private:

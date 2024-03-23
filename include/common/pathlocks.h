@@ -10,7 +10,7 @@ namespace spkdfs {
   class PathLocks {
   private:
     std::unordered_map<std::string, std::pair<bool, std::unique_ptr<std::shared_mutex>>> locks;
-    std::shared_mutex mapMutex;  // 用于保护锁映射的互斥量
+    std::shared_mutex locks_mutex;  // 用于保护锁映射的互斥量
 
   public:
     void read_lock(const std::string& path);

@@ -50,7 +50,7 @@ TEST(Inode, RSStorageType) {
         = dynamic_cast<RSStorageType *>(StorageType::from_string(p.first).get());
     EXPECT_EQ(rs_storage_type_ptr->k, p.second[0]);
     EXPECT_EQ(rs_storage_type_ptr->m, p.second[1]);
-    EXPECT_EQ(rs_storage_type_ptr->getBlockSize() / 1024 / 1024, p.second[2]);
+    EXPECT_EQ(rs_storage_type_ptr->get_block_size() / 1024 / 1024, p.second[2]);
   }
 }
 
@@ -64,7 +64,7 @@ TEST(Inode, REStorageType) {
     REStorageType *re_storage_type_ptr
         = dynamic_cast<REStorageType *>(StorageType::from_string(p.first).get());
     EXPECT_EQ(re_storage_type_ptr->replications, p.second[0]);
-    EXPECT_EQ(re_storage_type_ptr->getBlockSize() / 1024 / 1024, p.second[1]);
+    EXPECT_EQ(re_storage_type_ptr->get_block_size() / 1024 / 1024, p.second[1]);
   }
 }
 
@@ -112,7 +112,7 @@ TEST(Client, RS_encode_decode) {
       }
     }
     // max: data_size = 2.4 * blocksize
-    string data = generateBlock(((rand() % 60) * 1.0 / 40) * rs_ptr->getBlockSize());
+    string data = generateBlock(((rand() % 60) * 1.0 / 40) * rs_ptr->get_block_size());
     cout << "generateBlock size: " << data.size() << endl;
     EXPECT_EQ(rs_ptr->decode(rs_ptr->encode(data)), data);
   }

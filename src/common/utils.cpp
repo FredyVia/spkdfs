@@ -37,7 +37,7 @@ namespace spkdfs {
           if (running) this->runFunc();
         }
       } catch (const TimeoutException &e) {
-        this->timeoutFunc(e.get_data());
+        if (this->timeoutFunc != nullptr) this->timeoutFunc(e.get_data());
       }
     });
   }

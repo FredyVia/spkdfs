@@ -31,7 +31,7 @@ namespace spkdfs {
     virtual std::string decode(std::vector<std::string> vec) const = 0;
     virtual bool check(int success) const = 0;
     static std::shared_ptr<StorageType> from_string(const std::string& input);
-    inline virtual int getBlockSize() { return b * 1024 * 1024; }
+    inline virtual int get_block_size() { return b * 1024 * 1024; }
     virtual int getBlocks() = 0;
     virtual int getDecodeBlocks() = 0;
     virtual ~StorageType(){};
@@ -47,7 +47,7 @@ namespace spkdfs {
     std::vector<std::string> encode(const std::string& data) const override;
     std::string decode(std::vector<std::string> vec) const override;
     bool check(int success) const override;
-    // inline virtual int getBlockSize() { return b * 1024 * 1024; }
+    // inline virtual int get_block_size() { return b * 1024 * 1024; }
     inline virtual int getBlocks() { return k + m; }
     virtual int getDecodeBlocks() { return k; }
   };
@@ -98,8 +98,8 @@ namespace spkdfs {
     std::string filename() const;
     std::string parent_path() const;
     std::string value() const;
-    inline int getBlockSize() const {
-      return storage_type_ptr == nullptr ? 0 : storage_type_ptr->getBlockSize();
+    inline int get_block_size() const {
+      return storage_type_ptr == nullptr ? 0 : storage_type_ptr->get_block_size();
     }
   };
   bool operator==(const Inode& lhs, const Inode& rhs) noexcept;

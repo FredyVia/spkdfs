@@ -53,6 +53,8 @@ namespace spkdfs {
     std::string get_tmp_path(const std::string& path, uint32_t index) const;
     std::string put_to_datanode(const std::string& datanode, const std::string& block);
     std::string get_from_datanode(const std::string& datanode, const std::string& blkid);
+    void _create(const std::string& path);
+    void _truncate(const std::string& dst, size_t size);
     // void local_truncate(const std::string& dst, size_t size);
     void read_lock(const std::string& dst);
     void write_lock(const std::string& dst);

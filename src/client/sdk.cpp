@@ -187,6 +187,9 @@ namespace spkdfs {
         fs::remove_all(get_tmp_index_path(path, i));
       }
     }
+    for (int i = remote.sub.size(); i < local.sub.size(); i++) {
+      fs::remove_all(get_tmp_index_path(path, i));
+    }
     std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
     local_inode_cache[path] = remote;
   }
@@ -213,8 +216,8 @@ namespace spkdfs {
     VLOG(2) << "open flags: " << flags;
 
     if (flags & O_CREAT) {
-      VLOG(2) << "open with flag: O_CREAT";
-      create(path);
+      // ref mknod & create in libfuse
+      _create(path);
     }
 
     string local_path = get_tmp_path(path);
@@ -229,10 +232,9 @@ namespace spkdfs {
     }
     update_inode(path);
 
-    // truncate is not stateless, must be after update_inode
     if (flags & O_TRUNC) {
-      VLOG(2) << "open with flag: O_TRUNC";
-      truncate(path, 0);
+      LOG(WARNING) << "open with flag: O_TRUNC";
+      _truncate(path, 0);
     }
   }
 
@@ -260,6 +262,7 @@ namespace spkdfs {
 
   void SDK::close(const std::string &dst) {
     fsync(dst);
+    std::unique_lock<std::shared_mutex> lock(mutex_local_inode_cache);
     local_inode_cache.erase(dst);
     unlock(dst);
   }
@@ -440,8 +443,8 @@ namespace spkdfs {
   //   }
   //   inode.getBlockSize();
   // }
-
-  void SDK::truncate(const std::string &dst, size_t size) {
+  void SDK::truncate(const std::string &dst, size_t size) { open(dst, O_WRONLY | O_TRUNC); }
+  void SDK::_truncate(const std::string &dst, size_t size) {
     Inode inode = get_inode(dst);
     if (inode.filesize == size) {
       return;
@@ -460,6 +463,7 @@ namespace spkdfs {
     CommonResponse response;
     nn_master_stub_ptr->put_ok(&cntl, &nnPutokReq, &response, NULL);
     check_response(cntl, response.common());
+    unlock(dst);
   }
 
   inline pair<int, int> SDK::get_indexs(const Inode &inode, uint64_t offset, size_t size) const {
@@ -579,9 +583,9 @@ namespace spkdfs {
       ln_path_index(path, index);
     }
   }
+  void SDK::create(const string &path) { open(path, O_WRONLY | O_CREAT); }
   // stateless
-  void SDK::create(const string &path) {
-    open("", false);
+  void SDK::_create(const string &path) {
     string dst_path = get_tmp_index_path("", 0);
     std::ofstream ofile(dst_path);
     ofile.close();

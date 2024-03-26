@@ -1,0 +1,17 @@
+{
+  "dependencies": [
+    "breakpad",
+    "gflags",
+    "braft",
+    "brpc",
+    "nlohmann-json",
+    "protobuf",
+    "glog",
+    "rocksdb",
+    "cryptopp",
+    "gtest",
+    "dbg-macro",
+    "libfuse",
+    "benchmark"
+  ]
+}

@@ -288,9 +288,9 @@ static int spkdfs_getattr(const char *path, struct stat *stbuf, struct fuse_file
 
 static int spkdfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t offset,
                           struct fuse_file_info *fi, enum fuse_readdir_flags flags) {
-  filler(buf, ".", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
-  filler(buf, "..", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
-  // filler(buf, options.filename, NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
+  filler(buf, ".", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_DEFAULTS);
+  filler(buf, "..", NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_DEFAULTS);
+  // filler(buf, options.filename, NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_DEFAULTS);
   Inode inode = fuse_ptr->ls(path);
   if (!inode.is_directory) {
     cout << "not directory" << endl;
@@ -298,7 +298,7 @@ static int spkdfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler, o
   }
   for (auto str : inode.sub) {
     if (str.back() == '/') str.pop_back();
-    filler(buf, str.c_str(), NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_NONE);
+    filler(buf, str.c_str(), NULL, 0, fuse_fill_dir_flags::FUSE_FILL_DIR_DEFAULTS);
   }
   return 0;
 }

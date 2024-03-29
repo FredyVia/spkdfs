@@ -1,3 +1,7 @@
-FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_node:latest
-ARG DST
-COPY ${DST} /node
+FROM archlinux:latest
+COPY build/x64-linux-dynamic/vcpkg_installed/x64-linux-dynamic/lib /vcpkg_lib
+COPY build/x64-linux-dynamic/node /node
+ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}
+RUN export TRIPLET=x64-linux-dynamic
+ENTRYPOINT [ "/node" ]
+CMD [ "--help" ]

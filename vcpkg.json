@@ -12,6 +12,8 @@
     "gtest",
     "dbg-macro",
     "libfuse",
+    "isal",
+    "liberasurecode",
     "benchmark"
   ]
 }

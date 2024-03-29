@@ -1,0 +1,11 @@
+FROM archlinux:latest
+COPY build/x64-linux-dynamic/vcpkg_installed/x64-linux-dynamic/lib /vcpkg_lib
+COPY node.conf /spkdfs/node.conf
+COPY build/x64-linux-dynamic/node /node
+ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}
+RUN export TRIPLET=x64-linux-dynamic \
+&& echo "Server = http://mirrors.cqu.edu.cn/archlinux/\$repo/os/\$arch" > /etc/pacman.d/mirrorlist \
+&& pacman -Syu --noconfirm gperftools
+ENTRYPOINT [ "/node" ]
+CMD [ "--help" ]
+

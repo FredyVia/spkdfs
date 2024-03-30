@@ -38,8 +38,8 @@ namespace spkdfs {
     if (found) {
       LOG(INFO) << "I'm in namenodes list";
       if (nn_raft_ptr != nullptr) {
-        LOG(INFO) << "change_peers:" << to_string(namenodes);
-        nn_raft_ptr->change_peers(namenodes);
+        LOG(INFO) << "reset_peers:" << to_string(namenodes);
+        nn_raft_ptr->reset_peers(namenodes);
         return;
       }
       LOG(INFO) << "start new namenode";

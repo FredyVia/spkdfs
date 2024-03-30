@@ -55,6 +55,13 @@ namespace spkdfs {
     conf.parse_from(s);
     raft_node->change_peers(conf, NULL);
   }
+  void RaftNN::reset_peers(const std::vector<Node>& namenodes) {
+    string s = to_string(namenodes);
+    LOG(INFO) << s;
+    braft::Configuration conf;
+    conf.parse_from(s);
+    raft_node->reset_peers(conf);
+  }
   // bool RaftNN::is_leader() const { return raft_node->is_leader(); }
 
   void RaftNN::shutdown() { raft_node->shutdown(NULL); }

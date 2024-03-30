@@ -24,6 +24,7 @@ namespace spkdfs {
 
   public:
     void change_peers(const std::vector<Node>& namenodes);
+    void reset_peers(const std::vector<Node>& namenodes);
     RaftNN(const std::string& my_ip, const std::vector<Node>& nodes);
     ~RaftNN();
     void start();

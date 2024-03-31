@@ -19,15 +19,16 @@ ref Dockerfiles/
 1. Dockerfile.builder
 1. Dockerfile.runtime
 1. Dockerfile.node
+1. Dockerfile.dev
 # usefull command
 
 * compile and restart cluster
 ```shell
-clear && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${HOME}/vcpkg-${TRIPLET}/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc) && docker compose down && sudo rm -rf tmp && docker build -t spkdfs:latest --build-arg DST=node -f Dockerfiles/Dockerfile.dev ./build/${TRIPLET} && docker compose up -d
+clear && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc) && docker compose down && sudo rm -rf ./tmp && docker build -t spkdfs:latest -f Dockerfiles/Dockerfile.dev . && docker compose up -d
 ```
 * compile and not restart cluster
 ```shell
-clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${HOME}/vcpkg/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc)
+clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc)
 ```
 * mkdir
 ```shell

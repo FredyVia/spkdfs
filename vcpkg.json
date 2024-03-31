@@ -12,6 +12,10 @@
     "gtest",
     "dbg-macro",
     "libfuse",
+    "isal",
+    "liberasurecode",
+    "gperftools",
+    "libunwind",
     "benchmark"
   ]
 }

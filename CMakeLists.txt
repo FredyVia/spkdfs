@@ -12,6 +12,7 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   )
 endif()
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # find package
 find_package(PkgConfig REQUIRED)
 

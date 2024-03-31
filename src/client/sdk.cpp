@@ -41,17 +41,21 @@ namespace spkdfs {
     }
 
     // get the master namenode
-    Channel nn_channel;
-    if (nn_channel.Init(namenodes[0].c_str(), NULL) != 0) {
-      throw runtime_error("get_master channel init failed");
+    string namenode_slave = namenode;
+    if (namenode_slave == "") {
+      namenode_slave = get_slave_namenode(namenodes);
     }
+    cout << "namenode slave: " << namenode_slave << endl;
+    if (nn_slave_channel.Init(string(namenode_slave).c_str(), NULL) != 0) {
+      throw runtime_error("namenode_slave channel init failed");
+    }
+    nn_slave_stub_ptr = new NamenodeService_Stub(&nn_slave_channel);
 
-    NamenodeService_Stub nn_stub(&nn_channel);
     NNGetMasterResponse nn_getmaster_resp;
     cntl.Reset();
-    nn_stub.get_master(&cntl, &request, &nn_getmaster_resp, NULL);
-
+    nn_slave_stub_ptr->get_master(&cntl, &request, &nn_getmaster_resp, NULL);
     check_response(cntl, nn_getmaster_resp.common());
+
     string namenode_master = nn_getmaster_resp.node();
     VLOG(2) << "namenode master: " << namenode_master;
 
@@ -62,13 +66,17 @@ namespace spkdfs {
     nn_master_stub_ptr = new NamenodeService_Stub(&nn_master_channel);
 
     // set the slave namenode service
-    string namenode_slave = get_slave_namenode(namenodes, namenode_master, namenode);
-    cout << "namenode slave: " << namenode_slave << endl;
-    if (nn_slave_channel.Init(string(namenode_slave).c_str(), NULL) != 0) {
-      throw runtime_error("namenode_slave channel init failed");
+    if (namenode_master == namenode_slave) {
+      namenodes.erase(remove(namenodes.begin(), namenodes.end(), namenode_slave), namenodes.end());
+      namenode_slave = get_slave_namenode(namenodes);
+      cout << "namenode slave: " << namenode_slave << endl;
+      if (nn_slave_channel.Init(string(namenode_slave).c_str(), NULL) != 0) {
+        throw runtime_error("namenode_slave channel init failed");
+      }
+      delete nn_slave_stub_ptr;
+      nn_slave_stub_ptr = new NamenodeService_Stub(&nn_slave_channel);
+      cout << endl;
     }
-    nn_slave_stub_ptr = new NamenodeService_Stub(&nn_slave_channel);
-    cout << endl;
 
     timer = make_shared<IntervalTimer>(
         max(LOCK_REFRESH_INTERVAL >> 2, 5),
@@ -117,17 +125,10 @@ namespace spkdfs {
     return dn_stubs[node].second;
   }
 
-  string SDK::get_slave_namenode(vector<string>& namenodes, const string& master, const string& user_defined) {
-    namenodes.erase(remove(namenodes.begin(), namenodes.end(), master), namenodes.end());
-    string slave = user_defined;
-    if (slave == "") {
-      srand(time(0));
-      int index = rand() % namenodes.size();
-      slave = namenodes[index];
-    } else if (find(namenodes.begin(), namenodes.end(), slave) == namenodes.end()) {
-      throw runtime_error("Invalid namenode's addresss" + slave);
-    }
-    return slave;
+  string SDK::get_slave_namenode(const vector<string>& namenodes) {
+    srand(time(0));
+    int index = rand() % namenodes.size();
+    return namenodes[index];
   }
 
   SDK::~SDK() {

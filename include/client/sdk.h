@@ -32,7 +32,7 @@ namespace spkdfs {
     std::shared_mutex mutex_local_inode_cache;
 
     DatanodeService_Stub* get_dn_stub(const std::string& node);
-    std::string get_slave_namenode(std::vector<std::string>& namenodes, const std::string& master, const std::string& user_defined);
+    std::string get_slave_namenode(const std::vector<std::string>& namenodes);
     std::string read_data(const Inode& inode, std::pair<int, int> indexs);
     // void write_data(const Inode& inode, int start_index, std::string s);
     inline std::pair<int, int> get_indexs(const Inode& inode, uint64_t offset, size_t size) const;

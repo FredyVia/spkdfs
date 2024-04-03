@@ -34,6 +34,7 @@ namespace spkdfs {
     Node leader();
     void on_namenodes_change(const std::vector<Node>& namenodes);
     void waiting_for_rpc();
+    void change_namenodes_list(const std::vector<Node>& new_namenodes);
   };
 }  // namespace spkdfs
 #endif

@@ -24,6 +24,7 @@ namespace spkdfs {
     node_options.disable_cli = true;
     node_options.initial_conf.parse_from(to_string(nodes));
     raft_node = new braft::Node("RaftNN", Node(my_ip, FLAGS_nn_port).to_peerid());
+    peers = nodes;
   }
 
   Node RaftNN::leader() {
@@ -48,19 +49,23 @@ namespace spkdfs {
     }
   }
 
+  std::vector<Node> RaftNN::list_peers() { return peers; }
+
   void RaftNN::change_peers(const std::vector<Node>& namenodes) {
     string s = to_string(namenodes);
-    LOG(INFO) << s;
+    LOG(INFO) << "change_peers: " << s;
     braft::Configuration conf;
     conf.parse_from(s);
     raft_node->change_peers(conf, NULL);
+    peers = namenodes;
   }
   void RaftNN::reset_peers(const std::vector<Node>& namenodes) {
     string s = to_string(namenodes);
-    LOG(INFO) << s;
+    LOG(INFO) << "reset_peers: " << s;
     braft::Configuration conf;
     conf.parse_from(s);
     raft_node->reset_peers(conf);
+    peers = namenodes;
   }
   // bool RaftNN::is_leader() const { return raft_node->is_leader(); }
 

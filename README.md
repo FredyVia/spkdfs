@@ -51,6 +51,16 @@ build/x64-linux-dynamic/client -datanode="192.168.88.112:8001" -command=put -sto
 build/amd64/client -datanode="192.168.88.109:8001" -command=get /source_in_server /dst
 ```
 
+# complie commands (new)
+
+```shell
+make # compile all source code
+make test # compile tests, the same below
+make fuse
+make benchmark
+make clean # rm -rf build
+```
+
 # notice
 glog has delay, call google::FlushLogFiles(INFO....) after throwing exception.
 

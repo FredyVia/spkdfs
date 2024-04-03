@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.14...3.22)
 set(CMAKE_CXX_STANDARD 17)
 
 project(Spkdfs LANGUAGES CXX)
-# ---- Include guards ----
 
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
   message(
@@ -13,70 +12,30 @@ if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-# find package
-find_package(PkgConfig REQUIRED)
 
-find_package(unofficial-breakpad CONFIG REQUIRED)
+option(BUILD_TEST "Build the test target" OFF)
+option(BUILD_FUSE "Build the fuse target" OFF)
+option(BUILD_BENCHMARK "Build the benchmark target" OFF)
+cmake_dependent_option(BUILD_NODE "Build the node target" ON "BUILD_TEST" OFF)
 
-find_package(GTest CONFIG REQUIRED)
+add_subdirectory(src/common)
+add_subdirectory(src/client)
 
-# set(GFLAGS_USE_TARGET_NAMESPACE ON)
-find_package(gflags CONFIG REQUIRED)
+if (BUILD_NODE)
+  add_subdirectory(src/node)
+endif(BUILD_NODE)
 
-find_package(unofficial-braft CONFIG REQUIRED)
+if (BUILD_TEST)
+  add_subdirectory(test/src)
+  enable_testing()
+endif(BUILD_TEST)
 
-find_package(unofficial-brpc CONFIG REQUIRED)
+if (BUILD_FUSE)
+  add_subdirectory(libfuse)
+  enable_testing()
+endif(BUILD_FUSE)
 
-find_package(nlohmann_json CONFIG REQUIRED)
-
-find_package(protobuf CONFIG REQUIRED)
-
-find_package(glog CONFIG REQUIRED)
-
-find_package(RocksDB CONFIG REQUIRED)
-
-find_package(cryptopp CONFIG REQUIRED)
-
-find_package(benchmark CONFIG REQUIRED)
-
-pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
-
-pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET GLOBAL fuse3)
-
-# 指定 protobuf 文件
-set(PROTO_FILE src/common/service.proto)
-# 生成 protobuf 源文件和头文件
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
-
-find_path(DBG_MACRO_INCLUDE_DIRS "dbg.h")
-
-# ---- Create standalone executable ----
-
-file(GLOB src_common CONFIGURE_DEPENDS src/common/*.cpp)
-file(GLOB src_node CONFIGURE_DEPENDS src/node/*.cpp)
-file(GLOB src_client CONFIGURE_DEPENDS src/client/*.cpp)
-file(GLOB src_tests CONFIGURE_DEPENDS test/src/*.cpp)
-file(GLOB src_libfuse CONFIGURE_DEPENDS libfuse/*.cpp)
-file(GLOB src_benchmark CONFIGURE_DEPENDS benchmark/*.cpp)
-
-add_executable(node ${src_node} ${src_common} ${PROTO_SRCS})
-add_executable(client ${src_client} ${src_common} ${PROTO_SRCS})
-list(FILTER src_node EXCLUDE REGEX "src/node/main\\.cpp$")
-list(FILTER src_client EXCLUDE REGEX "src/client/main\\.cpp$")
-add_executable(tests  ${src_node} ${src_client} ${src_tests} ${src_common} ${PROTO_SRCS})
-add_executable(fuse3 ${src_libfuse} ${src_common} ${src_client} ${PROTO_SRCS})
-add_executable(benchmark ${src_benchmark} ${src_common} ${src_client} ${PROTO_SRCS})
-
-target_include_directories(node PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(client PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(tests PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(fuse3 PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-target_include_directories(benchmark PUBLIC include ${CMAKE_CURRENT_BINARY_DIR} ${DBG_MACRO_INCLUDE_DIRS})
-
-target_link_libraries(node unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(client gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json PkgConfig::LIBERASURECODE cryptopp::cryptopp glog::glog)
-target_link_libraries(tests GTest::gtest unofficial::braft::braft-shared gflags::gflags unofficial::brpc::brpc-shared nlohmann_json::nlohmann_json glog::glog unofficial::breakpad::libbreakpad unofficial::breakpad::libbreakpad_client RocksDB::rocksdb PkgConfig::LIBERASURECODE cryptopp::cryptopp)
-target_link_libraries(fuse3 unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp)
-target_link_libraries(benchmark unofficial::brpc::brpc-shared PkgConfig::LIBERASURECODE PkgConfig::FUSE3 cryptopp::cryptopp benchmark::benchmark)
-
-enable_testing()
+if (BUILD_BENCHMARK)
+  add_subdirectory(benchmark)
+  enable_testing()
+endif(BUILD_BENCHMARK)

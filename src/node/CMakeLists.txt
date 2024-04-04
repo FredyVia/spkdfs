@@ -1,7 +1,3 @@
-find_package(unofficial-braft CONFIG REQUIRED)
-find_package(unofficial-breakpad CONFIG REQUIRED)
-find_package(RocksDB CONFIG REQUIRED)
-
 file(GLOB SRC_NODE CONFIGURE_DEPENDS *.cpp)
 list(FILTER SRC_NODE EXCLUDE REGEX "main\\.cpp$")
 

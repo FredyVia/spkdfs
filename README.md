@@ -54,11 +54,16 @@ build/amd64/client -datanode="192.168.88.109:8001" -command=get /source_in_serve
 # complie commands (new)
 
 ```shell
+# with Makefile
 make # compile all source code
 make test # compile tests, the same below
 make fuse
 make benchmark
 make clean # rm -rf build
+
+# without Makefile
+# compile with target's build-flag turning on, e.g. -DBUILD_TEST:BOOL=ON/OFF
+export TRIPLET=x64-linux-dynamic && cmake -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake -DBUILD_BENCHMARK:BOOL=ON -DBUILD_TEST:BOOL=ON -DBUILD_FUSE:BOOL=ON && cmake --build build/${TRIPLET} -j $(nproc)
 ```
 
 # notice

@@ -1,14 +1,5 @@
 find_path(DBG_MACRO_INCLUDE_DIRS "dbg.h")
 
-find_package(PkgConfig REQUIRED)
-find_package(gflags CONFIG REQUIRED)
-find_package(unofficial-brpc CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(protobuf CONFIG REQUIRED)
-find_package(glog CONFIG REQUIRED)
-find_package(cryptopp CONFIG REQUIRED)
-pkg_check_modules(LIBERASURECODE REQUIRED IMPORTED_TARGET GLOBAL erasurecode-1)
-
 # 指定 protobuf 文件
 set(PROTO_FILE service.proto)
 # 生成 protobuf 源文件和头文件

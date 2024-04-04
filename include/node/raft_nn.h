@@ -17,13 +17,16 @@ namespace spkdfs {
   class RaftNN : public braft::StateMachine {
   private:
     std::string my_ip;
+    std::vector<Node> peers;
 
     RocksDB db;
     braft::NodeOptions node_options;
     braft::Node* volatile raft_node;
 
   public:
+    std::vector<Node> list_peers();
     void change_peers(const std::vector<Node>& namenodes);
+    void reset_peers(const std::vector<Node>& namenodes);
     RaftNN(const std::string& my_ip, const std::vector<Node>& nodes);
     ~RaftNN();
     void start();

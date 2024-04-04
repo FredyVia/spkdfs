@@ -2,9 +2,12 @@
 
 #include <glog/logging.h>
 
+#include <algorithm>
 #include <cstddef>
 #include <exception>
+#include <iterator>
 #include <memory>
+#include <vector>
 
 #include "common/node.h"
 #include "common/service.h"
@@ -38,8 +41,7 @@ namespace spkdfs {
     if (found) {
       LOG(INFO) << "I'm in namenodes list";
       if (nn_raft_ptr != nullptr) {
-        LOG(INFO) << "change_peers:" << to_string(namenodes);
-        nn_raft_ptr->change_peers(namenodes);
+        change_namenodes_list(namenodes);
         return;
       }
       LOG(INFO) << "start new namenode";
@@ -70,6 +72,24 @@ namespace spkdfs {
       delete nn_raft_ptr;
       nn_raft_ptr = nullptr;
       nn_server.ClearServices();
+    }
+  }
+
+  void Server::change_namenodes_list(const std::vector<Node>& new_namenodes) {
+    vector<Node> old_namenodes{nn_raft_ptr->list_peers()};
+    int alivenodes_count{0};
+    for (const auto& node : old_namenodes) {
+      if (find(begin(new_namenodes), end(new_namenodes), node) != new_namenodes.end()) {
+        ++alivenodes_count;
+      }
+    }
+    LOG(INFO) << "old nodes: " << to_string(old_namenodes);
+    LOG(INFO) << "new nodes: " << to_string(new_namenodes);
+    LOG(INFO) << "alive nodes count: " << alivenodes_count;
+    if (alivenodes_count > new_namenodes.size() / 2) {
+      nn_raft_ptr->change_peers(new_namenodes);
+    } else {
+      nn_raft_ptr->reset_peers(new_namenodes);
     }
   }
 

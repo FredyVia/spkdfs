@@ -24,11 +24,13 @@ ref Dockerfiles/
 
 * compile and restart cluster
 ```shell
-clear && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc) && docker compose down && sudo rm -rf ./tmp && docker build -t spkdfs:latest -f Dockerfiles/Dockerfile.dev . && docker compose up -d
+# for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TEST:BOOL=ON/OFF
+
+clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake --preset=default && cmake --build build/${TRIPLET} -j $(nproc)&& docker compose down && sudo rm -rf ./tmp && docker build -t spkdfs:latest -f Dockerfiles/Dockerfile.dev . && docker compose up -d
 ```
 * compile and not restart cluster
 ```shell
-clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake -S . -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake && cmake --build build/${TRIPLET} -j $(nproc)
+clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake --preset=default && cmake --build build/${TRIPLET} -j $(nproc)
 ```
 * mkdir
 ```shell
@@ -49,21 +51,6 @@ build/x64-linux-dynamic/client -datanode="192.168.88.112:8001" -command=put -sto
 * download
 ```shell
 build/amd64/client -datanode="192.168.88.109:8001" -command=get /source_in_server /dst
-```
-
-# complie commands (new)
-
-```shell
-# with Makefile
-make # compile all source code
-make test # compile tests, the same below
-make fuse
-make benchmark
-make clean # rm -rf build
-
-# without Makefile
-# compile with target's build-flag turning on, e.g. -DBUILD_TEST:BOOL=ON/OFF
-export TRIPLET=x64-linux-dynamic && cmake -B build/${TRIPLET} -DCMAKE_BUILD_TYPE=Debug -DVCPKG_TARGET_TRIPLET=${TRIPLET} -DCMAKE_TOOLCHAIN_FILE=${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake -DBUILD_BENCHMARK:BOOL=ON -DBUILD_TEST:BOOL=ON -DBUILD_FUSE:BOOL=ON && cmake --build build/${TRIPLET} -j $(nproc)
 ```
 
 # notice

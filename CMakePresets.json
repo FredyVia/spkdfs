@@ -1,14 +1,15 @@
 {
-  "version": 2,
+  "version": 6,
   "configurePresets": [
     {
       "name": "default",
       "generator": "Unix Makefiles",
       "environment": {
-        "VCPKG_ROOT": "${sourceDir}"
+        "TRIPLET": "x64-linux-dynamic"
       },
       "binaryDir": "${sourceDir}/build/$env{TRIPLET}",
       "cacheVariables": {
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "$env{TRIPLET}",
         "CMAKE_BUILD_TYPE": "Debug",
@@ -25,6 +26,28 @@
           "value": true
         }
       }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "jobs": 8,
+      "configurePreset": "default"
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "default",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "default"
+        },
+        {
+          "type": "build",
+          "name": "default"
+        }
+      ]
     }
   ]
 }

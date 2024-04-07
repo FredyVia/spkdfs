@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "configurePresets": [
+    {
+      "name": "default",
+      "generator": "Unix Makefiles",
+      "environment": {
+        "VCPKG_ROOT": "${sourceDir}"
+      },
+      "binaryDir": "${sourceDir}/build/$env{TRIPLET}",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "$env{TRIPLET}",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_TEST": {
+          "type": "BOOL",
+          "value": true
+        },
+        "BUILD_FUSE": {
+          "type": "BOOL",
+          "value": true
+        },
+        "BUILD_BENCHMARK": {
+          "type": "BOOL",
+          "value": true
+        }
+      }
+    }
+  ]
+}

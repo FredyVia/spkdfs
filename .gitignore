@@ -9,3 +9,4 @@
 /node.conf
 /.cache
 /compile_commands.json
+/vcpkg_installed

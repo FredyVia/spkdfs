@@ -1,6 +1,6 @@
 FROM archlinux:latest
-COPY build/x64-linux-dynamic/vcpkg_installed/x64-linux-dynamic/lib /vcpkg_lib
-COPY build/x64-linux-dynamic/node /node
+COPY vcpkg_installed/x64-linux-dynamic/lib /vcpkg_lib
+COPY build/x64-linux-dynamic/src/node/node /node
 ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}
 RUN export TRIPLET=x64-linux-dynamic
 ENTRYPOINT [ "/node" ]

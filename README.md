@@ -22,35 +22,38 @@ ref Dockerfiles/
 1. Dockerfile.dev
 # usefull command
 
-* compile and restart cluster
+* compile
+for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TEST:BOOL=ON/OFF
 ```shell
-# for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TEST:BOOL=ON/OFF
-
-clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake --preset=default && cmake --build build/${TRIPLET} -j $(nproc)&& docker compose down && sudo rm -rf ./tmp && docker build -t spkdfs:latest -f Dockerfiles/Dockerfile.dev . && docker compose up -d
+clear && echo "build" && cmake --workflow --preset=default 
 ```
-* compile and not restart cluster
+OR
 ```shell
-clear && echo "clibuild" && export TRIPLET=x64-linux-dynamic && cmake --preset=default && cmake --build build/${TRIPLET} -j $(nproc)
+clear && echo "build" && cmake --preset=default && cmake --build --preset=default -j $(nproc)
+```
+* restart cluster
+```shell
+clear && echo "restart cluster" && docker compose down && sudo rm -rf ./tmp && docker build -t spkdfs:latest -f Dockerfiles/Dockerfile.dev . && docker compose up -d
 ```
 * mkdir
 ```shell
-build/x64-linux-dynamic/client -datanode=192.168.88.112:8001 -command=mkdir /$(uuidgen)
+./build/x64-linux-dynamic/src/client/client -datanode=192.168.88.112:8001 -command=mkdir /$(uuidgen)
 ```
 * ls
 ```shell
-build/x64-linux-dynamic/client -command=ls / -datanode=192.168.88.112:8001
+./build/x64-linux-dynamic/src/client/client -command=ls / -datanode=192.168.88.112:8001
 ```
 * rmdir & rm
 ```shell
-build/x64-linux-dynamic/client -command=rm /file_or_directory -datanode=192.168.88.112:8001
+./build/x64-linux-dynamic/src/client/client -command=rm /file_or_directory -datanode=192.168.88.112:8001
 ```
 * upload(using erasure code requires package libjerasure-dev)
 ```shell
-build/x64-linux-dynamic/client -datanode="192.168.88.112:8001" -command=put -storage_type="RS<7,5,16>" /source_in_client /xxxtmp.log
+./build/x64-linux-dynamic/src/client/client -datanode="192.168.88.112:8001" -command=put -storage_type="RS<7,5,16>" /source_in_client /xxxtmp.log
 ```
 * download
 ```shell
-build/amd64/client -datanode="192.168.88.109:8001" -command=get /source_in_server /dst
+./build/x64-linux-dynamic/src/client/client -datanode="192.168.88.109:8001" -command=get /source_in_server /dst
 ```
 
 # notice

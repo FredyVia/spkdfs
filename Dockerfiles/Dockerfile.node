@@ -3,7 +3,7 @@ FROM --platform=$TARGETPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkd
 FROM --platform=$BUILDPLATFORM registry.cn-chengdu.aliyuncs.com/little_bee/spkdfs_builder:latest AS builder
 ARG TARGETARCH
 ARG TARGETPLATFORM
-RUN apt update && apt install -y --no-install-recommends crossbuild-essential-${TARGETARCH} && apt clean;
+RUN apt update && DEBIAN_FRONTEND=noninteractive apt install -y --no-install-recommends crossbuild-essential-${TARGETARCH} && apt clean;
 COPY . /spkdfs
 COPY --from=vcpkg_source /vcpkg /vcpkg
 WORKDIR /spkdfs

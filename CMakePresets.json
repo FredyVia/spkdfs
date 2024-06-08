@@ -13,11 +13,15 @@
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
         "VCPKG_TARGET_TRIPLET": "$env{TRIPLET}",
         "CMAKE_BUILD_TYPE": "Debug",
-        "BUILD_TEST": {
+        "BUILD_NODE": {
           "type": "BOOL",
           "value": true
         },
-        "BUILD_FUSE": {
+        "BUILD_CLIENT": {
+          "type": "BOOL",
+          "value": true
+        },
+        "BUILD_TESTS": {
           "type": "BOOL",
           "value": true
         },
@@ -26,13 +30,46 @@
           "value": true
         }
       }
+    },
+    {
+      "name": "arm64-linux-dynamic",
+      "generator": "Unix Makefiles",
+      "environment": {
+        "TRIPLET": "arm64-linux-dynamic"
+      },
+      "binaryDir": "${sourceDir}/build/$env{TRIPLET}",
+      "cacheVariables": {
+        "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg_installed",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "$env{TRIPLET}",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "BUILD_NODE": {
+          "type": "BOOL",
+          "value": true
+        },
+        "BUILD_CLIENT": {
+          "type": "BOOL",
+          "value": false
+        },
+        "BUILD_TESTS": {
+          "type": "BOOL",
+          "value": false
+        },
+        "BUILD_BENCHMARK": {
+          "type": "BOOL",
+          "value": false
+        }
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "default",
-      "jobs": 8,
       "configurePreset": "default"
+    },
+    {
+      "name": "arm64-linux-dynamic",
+      "configurePreset": "arm64-linux-dynamic"
     }
   ],
   "workflowPresets": [
@@ -46,6 +83,19 @@
         {
           "type": "build",
           "name": "default"
+        }
+      ]
+    },
+    {
+      "name": "arm64-linux-dynamic",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "arm64-linux-dynamic"
+        },
+        {
+          "type": "build",
+          "name": "arm64-linux-dynamic"
         }
       ]
     }

@@ -10,5 +10,12 @@
       "location": "https://github.com/microsoft/vcpkg-ce-catalog/archive/refs/heads/main.zip",
       "name": "microsoft"
     }
+  ],
+  "overlay-triplets": [
+    "./vcpkg/triplets"
+  ],
+  "overlay-ports": [
+    "./vcpkg/ports/libfuse",
+    "./vcpkg/ports/libunwind"
   ]
 }

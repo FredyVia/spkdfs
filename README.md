@@ -23,7 +23,7 @@ ref Dockerfiles/
 # usefull command
 
 * compile
-for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TEST:BOOL=ON/OFF
+for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TESTS:BOOL=ON/OFF
 ```shell
 clear && echo "build" && cmake --workflow --preset=default 
 ```

@@ -1,3 +1,5 @@
+#!/bin/python
+
 from string import Template
 import argparse
 

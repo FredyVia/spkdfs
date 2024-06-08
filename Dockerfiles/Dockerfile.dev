@@ -1,4 +1,4 @@
-FROM archlinux:latest
+FROM ubuntu:22.04
 COPY vcpkg_installed/x64-linux-dynamic/lib /vcpkg_lib
 COPY build/x64-linux-dynamic/src/node/node /node
 ENV LD_LIBRARY_PATH=/vcpkg_lib:${LD_LIBRARY_PATH}

@@ -5,7 +5,6 @@
 #include "common/utils.h"
 #include "erasurecode.h"
 #include "service.pb.h"
-// #include "erasure_code/ErasureCodeClay.h"
 namespace spkdfs {
   using json = nlohmann::json;
   using namespace std;

@@ -207,7 +207,7 @@ namespace spkdfs {
   }
 
   int RaftDN::on_snapshot_load(braft::SnapshotReader* reader) {
-    string file_path = reader->get_path() + "namenodes.json";
+    string file_path = reader->get_path() + "/namenodes.json";
     string str;
     str = read_file(file_path);
     if (!str.empty()) {

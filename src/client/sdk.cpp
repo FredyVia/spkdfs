@@ -26,7 +26,7 @@ namespace spkdfs {
     }
   }
 
-  SDK::SDK(const std::string &datanode, const std::string& namenode) {
+  SDK::SDK(const std::string &datanode, const std::string &namenode) {
     // get all namenodes
     Controller cntl;
     Request request;
@@ -111,6 +111,7 @@ namespace spkdfs {
   }
 
   DatanodeService_Stub *SDK::get_dn_stub(const std::string &node) {
+    std::lock_guard<std::mutex> lock(mutex_dn_stubs);
     if (dn_stubs.find(node) == dn_stubs.end()) {
       dn_stubs[node].first.Init(node.c_str(), NULL);
       try {
@@ -125,7 +126,7 @@ namespace spkdfs {
     return dn_stubs[node].second;
   }
 
-  string SDK::get_slave_namenode(const vector<string>& namenodes) {
+  string SDK::get_slave_namenode(const vector<string> &namenodes) {
     srand(time(0));
     int index = rand() % namenodes.size();
     return namenodes[index];

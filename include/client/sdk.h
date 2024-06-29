@@ -19,6 +19,8 @@ namespace spkdfs {
     brpc::Channel nn_slave_channel;
     NamenodeService_Stub* nn_master_stub_ptr;
     NamenodeService_Stub* nn_slave_stub_ptr;
+
+    std::shared_mutex mutex_dn_stubs;
     std::unordered_map<std::string, std::pair<brpc::Channel, DatanodeService_Stub*>> dn_stubs;
 
     PathLocks pathlocks;
@@ -64,7 +66,7 @@ namespace spkdfs {
     void unlock(const std::string& dst);
 
   public:
-    SDK(const std::string& datanode, const std::string& namenode="");
+    SDK(const std::string& datanode, const std::string& namenode = "");
     ~SDK();
     void open(const std::string& path, int flags);
     void create(const std::string& path);

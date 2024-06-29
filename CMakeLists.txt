@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.14...3.22)
 
 set(CMAKE_CXX_STANDARD 17)
+if (BUILD_TESTS)
+  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
+endif(BUILD_TESTS)
+if (BUILD_CLIENT)
+  list(APPEND VCPKG_MANIFEST_FEATURES "client")
+endif(BUILD_CLIENT)
+if (BUILD_BENCHMARK)
+  list(APPEND VCPKG_MANIFEST_FEATURES "benchmark")
+endif(BUILD_BENCHMARK)
 
 project(Spkdfs LANGUAGES CXX)
 
@@ -33,14 +42,12 @@ endif(BUILD_NODE)
 
 option(BUILD_TESTS "Build the test target" OFF)
 if (BUILD_TESTS)
-  list(APPEND VCPKG_MANIFEST_FEATURES "tests")
   add_subdirectory(test/src)
   enable_testing()
 endif(BUILD_TESTS)
 
 option(BUILD_CLIENT "Build the client target" OFF)
 if (BUILD_CLIENT)
-  list(APPEND VCPKG_MANIFEST_FEATURES "client")
   pkg_check_modules(FUSE3 REQUIRED IMPORTED_TARGET GLOBAL fuse3)
   add_subdirectory(src/client)
   enable_testing()
@@ -48,7 +55,6 @@ endif(BUILD_CLIENT)
 
 option(BUILD_BENCHMARK "Build the benchmark target" OFF)
 if (BUILD_BENCHMARK)
-  list(APPEND VCPKG_MANIFEST_FEATURES "benchmark")
   find_package(benchmark CONFIG REQUIRED)
   add_subdirectory(benchmark)
   enable_testing()

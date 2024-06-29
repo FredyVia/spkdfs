@@ -1,5 +1,5 @@
 # To do:
-
+  * lock 
   * update_lock add failinfo and update_lock in one apply
   * inode lock time sync
   * seprate CMakeLists.txt
@@ -25,11 +25,11 @@ ref Dockerfiles/
 * compile
 for conditional compilation, turn to the file CMakePresets.json and turn the target's flag ON/OFF, e.g. BUILD_TESTS:BOOL=ON/OFF
 ```shell
-clear && echo "build" && cmake --workflow --preset=default 
+clear && echo "build" && cmake --workflow --preset=x64-linux-dynamic 
 ```
 OR
 ```shell
-clear && echo "build" && cmake --preset=default && cmake --build --preset=default -j $(nproc)
+clear && echo "build" && cmake --preset=x64-linux-dynamic && cmake --build --preset=x64-linux-dynamic -j $(nproc)
 ```
 * restart cluster
 ```shell
